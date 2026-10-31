@@ -5,6 +5,10 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- `docs/macos-gaps.md` and `docs/macos-gaps.zh-CN.md` record the pushed fork tip (`c69875b`), the post-sync macOS rebuild, and the `example.com` smoke after the Windows font guard landed by fast-forward.
+
 ### Added
 
 - `docs/macos-baseline.md` and `docs/macos-gaps.md`, with Chinese pairs, record the maintenance floor and the current gaps. Further macOS work is based on upstream `main`. The fork tip before the fast-forward, `0a82adb`, did not contain the Windows guard in `font_face_mac.cpp`.

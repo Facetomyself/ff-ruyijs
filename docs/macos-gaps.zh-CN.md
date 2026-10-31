@@ -6,15 +6,15 @@
 
 核对日期是 2026-10-31。
 
-## 眼前的缺口
+## 同步状态
 
-Windows 字体守卫在 `0a82adb` 上没有。快进到上游 `main` 之后，`d49bfd3`、`05b68fa` 和 `da1df2c` 都在 fork 尖端下面。这个尖端上的 `font_face_mac.cpp` 已是加了守卫的文件。把这个尖端推上去是另一步。推送之前，GitHub 上的三支仍停在 `0a82adb`。
+Windows 字体守卫在 `0a82adb` 上没有。快进到上游 `main` 之后，`d49bfd3`、`05b68fa` 和 `da1df2c` 都已进入。GitHub 上 fork 的 `main`、`release/macos` 和 `tls/necko-core-arm64` 尖端是 `c69875b`。这个尖端上的 `font_face_mac.cpp` 已是加了守卫的文件。
 
 | 线 | 尖端 | `font_face_mac.cpp` 里的守卫 |
 | --- | --- | --- |
 | 上游 `cutetailbud/ff-ruyijs` 的 `main` | `da1df2ce375131eb37234dba4638a5ce0d96a532` | 有，提交 `d49bfd3` |
-| 快进之后的本地 fork 分支 | 父提交 `da1df2c`，再加上这份文档 | 有 |
-| 推送之前的 GitHub fork 分支 | `0a82adb4e9c3ed1a046dde5953676c00442da59c` | 没有 |
+| 推送之后的维护方 fork 分支 | `c69875b`（在 `da1df2c` 上的文档） | 有 |
+| 快进之前的历史尖端 | `0a82adb4e9c3ed1a046dde5953676c00442da59c` | 没有 |
 
 上游 `main` 已经通过合并 `0d42c60` 包含 `0a82adb`。仍停在 `0a82adb` 的分支不包含 `d49bfd3`、`05b68fa` 和 `da1df2c`。
 
@@ -24,21 +24,21 @@ Windows 字体守卫在 `0a82adb` 上没有。快进到上游 `main` 之后，`d
 
 这棵树里的其他 Apple 包含已经在 `#ifndef _WIN32` 里面，或者在 `#ifdef _WIN32` 的 `#else` 里面。`system_font.cpp` 只在那个 `#else` 里包含 Core Text。`0a82adb` 没有新增 `.cpp`。这次核对的是当前树，不是第二次 Windows 构建。
 
-上游作者没有跑 macOS 这一半。上游守卫里面的 Darwin 文本与未加守卫的文件正文一致。本说明不把守卫之后的字面说成又做了一次新的 Mac 运行。
-
-这个检出没有在上游 `main` 上重编 Windows。作者的 Windows 结果仍以那条评论为准：加守卫后的树用同一套编译和链接命令构建，C ABI、已安装 wheel 的冒烟、CreepJS（96 个小节）和一套 64 探针的表现与之前一致。
+上游作者合并时没有跑 macOS 这一半。快进之后，这个检出在 `MACOSX_DEPLOYMENT_TARGET=26.0` 下对 SpiderMonkey 与浏览器 donor 重编，链接了 `web_geometry_font_face_mac`，并复测产品：`Context.eval('1+1')` 返回 2，`navigate('https://example.com/')` 达到状态 200，标题为 `Example Domain`。这个检出没有在上游 `main` 上重编 Windows。作者的 Windows 结果仍以那条评论为准：加守卫后的树用同一套编译和链接命令构建，C ABI、已安装 wheel 的冒烟、CreepJS（96 个小节）和一套 64 探针的表现与之前一致。
 
 ## 文档已经对齐的两处
 
-`docs/macos.md` 和 `docs/macos.zh-CN.md` 里有两段文字和这份状态矛盾，写本说明时已换掉。
+`docs/macos.md` 和 `docs/macos.zh-CN.md` 里有两段文字和合并后的状态矛盾，写第一份缺口说明时已换掉。
 
 维护方 fork 那一节原来写着：上游 `main` 仍是 Windows 发布线，上游更新不直接合并进该 fork 的 `main`。PR #4 和 PR #6 之后，那个 `main` 已经包含 macOS 外壳。那一节现在指向这里和底线文档。
 
 比对引言原来写着：上一份本地 wheel 和运行时压缩包没有重打，那份压缩包也不是 0.2.1。安装那一行本来就是当前记录：两份文件都在 fork Release `v0.2.1` 上，`runtime.json` 的 `macos.url` 指向这份压缩包。引言现在改成这个事实。
 
+后来又发现第一份缺口说明仍把 GitHub 分支写成未推送、停在 `0a82adb`。那段文字已换成上面的同步状态。
+
 ## 目标
 
-1. 只做同步。本地快进到上游 `main` 已经完成，没有混入功能。`d49bfd3`、`05b68fa` 和 `da1df2c` 是这个尖端的祖先。不使用 `reset --hard`，也不强推。GitHub 上的分支等这个尖端被推送之后才移动。
+1. 只做同步。已完成：fork 已快进到上游 `main`，同步本身没有混入功能，GitHub 上三支都在文档记录的尖端。`d49bfd3`、`05b68fa` 和 `da1df2c` 是祖先。不使用 `reset --hard`，也不强推。
 2. 之后的每次提交都守住平台守卫。新的产品 `.cpp` 若包含 Apple 头文件，审查前先包上守卫。
 3. socket process 保持关闭。偏好打开时，这只 xpcshell 在 `GeckoChildProcessHost::FillMacSandboxInfo` 里以信号 11 退出，调用来自 `SocketProcessHost::FillMacSandboxInfo`。`plugin-container.app` 只存在于 donor 的 objdir，来自 `mach build ipc/app --allow-subdirectory-build`。它不是产品文件。`MOZ_DISABLE_SOCKET_PROCESS_SANDBOX=1` 仍只是一次诊断。直连 HTTP/3 继续走 `libnecko_quic`。
 4. macOS wheel 和压缩包继续放在 fork Release 上。只有新的压缩包 URL 已经存在时才改 `macos.url`。Windows 的 URL 保持不动。标签 `v0.2.1` 留在原地。
@@ -65,4 +65,4 @@ COLRv1、Linux、Intel Mac、低于 macOS 26 的系统、GIF 像素对齐、额�
 
 ## 本说明不做什么
 
-本说明不另行重写字体守卫。守卫由快进带入。本说明不发布新的 Release，也不推送 fork。
+本说明不另行重写字体守卫。守卫由快进带入。本说明不发布新的 Release。

@@ -6,15 +6,15 @@ The same status is written in [macos-gaps.zh-CN.md](macos-gaps.zh-CN.md).
 
 Checked on 2026-10-31.
 
-## Immediate gap
+## Sync status
 
-The Windows font guard was absent on `0a82adb`. The fast-forward to upstream `main` puts `d49bfd3`, `05b68fa`, and `da1df2c` under the fork tip. `font_face_mac.cpp` on this tip is the guarded file. Pushing that tip is a separate step. Until the push, GitHub's three branches stay at `0a82adb`.
+The Windows font guard was absent on `0a82adb`. The fast-forward to upstream `main` brought in `d49bfd3`, `05b68fa`, and `da1df2c`. The fork tip on GitHub is `c69875b` on `main`, `release/macos`, and `tls/necko-core-arm64`. `font_face_mac.cpp` on that tip is the guarded file.
 
 | Line | Tip | Guard in `font_face_mac.cpp` |
 | --- | --- | --- |
 | Upstream `cutetailbud/ff-ruyijs` `main` | `da1df2ce375131eb37234dba4638a5ce0d96a532` | Yes, commit `d49bfd3` |
-| Local fork branches after the fast-forward | parent `da1df2c`, plus this documentation | Yes |
-| GitHub fork branches before the push | `0a82adb4e9c3ed1a046dde5953676c00442da59c` | No |
+| Maintainer fork branches after the push | `c69875b` (docs on top of `da1df2c`) | Yes |
+| Historical tip before the fast-forward | `0a82adb4e9c3ed1a046dde5953676c00442da59c` | No |
 
 Upstream `main` already contains `0a82adb` through merge `0d42c60`. A branch that is still at `0a82adb` does not contain `d49bfd3`, `05b68fa`, or `da1df2c`.
 
@@ -24,21 +24,21 @@ A pull request cut from `0a82adb` can hide this. When the branch does not touch 
 
 Other Apple includes in this tree sit inside `#ifndef _WIN32`, or inside the `#else` of `#ifdef _WIN32`. `system_font.cpp` includes Core Text only in that `#else`. `0a82adb` added no new `.cpp`. This audit is the current tree. It is not a second Windows build.
 
-The upstream author did not run the macOS half. The Darwin text inside the upstream guard matches the body of the unguarded file. This note does not claim a new Mac run of that face after the guard.
-
-This checkout has not rebuilt Windows on upstream `main`. The author's Windows result stays that comment: the guarded tree built with the same compile and link commands, and the C ABI, installed-wheel smoke, CreepJS (96 sections), and a 64-probe suite behaved as before.
+The upstream author did not run the macOS half when merging. After the fast-forward, this checkout rebuilt with `MACOSX_DEPLOYMENT_TARGET=26.0` against the SpiderMonkey and browser donors, linked `web_geometry_font_face_mac`, and retested the product: `Context.eval('1+1')` returned 2, and `navigate('https://example.com/')` reached status 200 with title `Example Domain`. This checkout has not rebuilt Windows on upstream `main`. The author's Windows result stays that comment: the guarded tree built with the same compile and link commands, and the C ABI, installed-wheel smoke, CreepJS (96 sections), and a 64-probe suite behaved as before.
 
 ## Docs brought in line
 
-Two passages in `docs/macos.md` and `docs/macos.zh-CN.md` contradicted this status and were replaced while writing this note.
+Two passages in `docs/macos.md` and `docs/macos.zh-CN.md` contradicted the post-merge status and were replaced while writing the first gaps note.
 
 The maintainer-fork section said upstream `main` stayed the Windows release line, and that an upstream update was not merged into the fork's `main`. After PR #4 and PR #6, that `main` contains the macOS shell. The section now points here and at the baseline.
 
 The comparison introduction said the previous local wheel and runtime zip were not rebuilt, and that the zip was not a 0.2.1 archive. The install row was already the current record: both files are on fork release `v0.2.1`, and `runtime.json` `macos.url` points at the zip. The introduction now says that.
 
+A later pass found the first gaps note still describing the GitHub branches as unpushed at `0a82adb`. That text is replaced by the sync status above.
+
 ## Goals
 
-1. Sync only. The local fast-forward to upstream `main` is done, with no feature mixed in. `d49bfd3`, `05b68fa`, and `da1df2c` are ancestors of this tip. `reset --hard` and a force-push stay unused. The GitHub branches move when this tip is pushed.
+1. Sync only. Done: the fork fast-forwarded to upstream `main`, with no feature mixed into that sync, and the three GitHub branches sit at the documented tip. `d49bfd3`, `05b68fa`, and `da1df2c` are ancestors. `reset --hard` and a force-push stay unused.
 2. Keep the platform guard on every later commit. A new product `.cpp` that includes an Apple header is wrapped before review.
 3. Leave the socket process off. With the preferences on, this xpcshell exits with signal 11 in `GeckoChildProcessHost::FillMacSandboxInfo`, reached from `SocketProcessHost::FillMacSandboxInfo`. `plugin-container.app` exists only in the donor objdir, after `mach build ipc/app --allow-subdirectory-build`. It is not a product file. `MOZ_DISABLE_SOCKET_PROCESS_SANDBOX=1` stayed a one-off diagnosis. Direct HTTP/3 stays on `libnecko_quic`.
 4. Keep the macOS wheel and zip on the fork release. Change `macos.url` only when a new zip URL exists. Leave the Windows URL unchanged. Leave tag `v0.2.1` where it is.
@@ -65,4 +65,4 @@ Open PR #5 (`linux-native`) is a separate line. It is not the macOS sync.
 
 ## What this note does not do
 
-It does not retype the font guard. The guard arrives by the fast-forward. It does not publish a new release, and it does not push the fork.
+It does not retype the font guard. The guard arrived by the fast-forward. It does not publish a new release.
