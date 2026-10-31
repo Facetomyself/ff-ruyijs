@@ -10,7 +10,7 @@
 
 2026-10-31 核对时，这个尖端是 `da1df2ce375131eb37234dba4638a5ce0d96a532`，说明是 `docs: show contributors under the sponsor as round avatars`。下一次同步前再读一次 `main`。新分支用当天读到的尖端。
 
-维护方 fork 是 `Facetomyself/ff-ruyijs`。它的 `main`、`release/macos` 和 `tls/necko-core-arm64` 停在 `0a82adb4e9c3ed1a046dde5953676c00442da59c`。该提交经合并 `0d42c60` 成为上游 `main` 的祖先，本身不包含其后的上游提交。
+维护方 fork 是 `Facetomyself/ff-ruyijs`。快进之前，它的 `main`、`release/macos` 和 `tls/necko-core-arm64` 停在 `0a82adb4e9c3ed1a046dde5953676c00442da59c`。该提交经合并 `0d42c60` 成为上游 `main` 的祖先，本身不包含 `d49bfd3`。快进到 `da1df2c` 才会把守卫带进来。
 
 上游 `main` 上需要记住的提交，从新到旧：
 
@@ -19,7 +19,7 @@
 | `da1df2c` | 赞助者下方的贡献者圆头像。只改文档。 |
 | `05b68fa` | 在 PR #4 旁边补上 PR #6 的署名。只改文档。 |
 | `0d42c60` | 合并 PR #6。父提交是 `48963a0` 和 `0a82adb`。 |
-| `0a82adb` | fork 尖端。QUIC ClientHello 配置，以及已发布的 macOS wheel。 |
+| `0a82adb` | 快进前的 fork 尖端。QUIC ClientHello 配置，以及已发布的 macOS wheel。 |
 | `48963a0` | PR #4 的第二次合并。WebTransport 的后续提交。 |
 | `9219fed` | PR #4 的第一次合并。 |
 | `d49bfd3` | 用 Windows 守卫包住整个 `src/web_geometry/font_face_mac.cpp`。 |

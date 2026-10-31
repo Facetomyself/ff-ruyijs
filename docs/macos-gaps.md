@@ -8,14 +8,15 @@ Checked on 2026-10-31.
 
 ## Immediate gap
 
-The fork tip does not contain the Windows font guard, or the two docs commits that followed PR #6.
+The Windows font guard was absent on `0a82adb`. The fast-forward to upstream `main` puts `d49bfd3`, `05b68fa`, and `da1df2c` under the fork tip. `font_face_mac.cpp` on this tip is the guarded file. Pushing that tip is a separate step. Until the push, GitHub's three branches stay at `0a82adb`.
 
 | Line | Tip | Guard in `font_face_mac.cpp` |
 | --- | --- | --- |
 | Upstream `cutetailbud/ff-ruyijs` `main` | `da1df2ce375131eb37234dba4638a5ce0d96a532` | Yes, commit `d49bfd3` |
-| Fork `main`, `release/macos`, `tls/necko-core-arm64` | `0a82adb4e9c3ed1a046dde5953676c00442da59c` | No |
+| Local fork branches after the fast-forward | parent `da1df2c`, plus this documentation | Yes |
+| GitHub fork branches before the push | `0a82adb4e9c3ed1a046dde5953676c00442da59c` | No |
 
-Upstream `main` already contains `0a82adb` through merge `0d42c60`. The fork does not contain `d49bfd3`, `05b68fa`, or `da1df2c`.
+Upstream `main` already contains `0a82adb` through merge `0d42c60`. A branch that is still at `0a82adb` does not contain `d49bfd3`, `05b68fa`, or `da1df2c`.
 
 `tools/product_sources.py` `sources()` compiles every flat `src/<domain>/*.cpp`. On `0a82adb`, `font_face_mac.cpp` includes `<CoreText/CoreText.h>` with no guard. A Windows build of that file stops on that include. Upstream `main` wraps the whole file in `#ifndef _WIN32`.
 
@@ -37,7 +38,7 @@ The comparison introduction said the previous local wheel and runtime zip were n
 
 ## Goals
 
-1. Sync only. Move the fork to upstream `main`, so `d49bfd3`, `05b68fa`, and `da1df2c` land on `main`, `release/macos`, and `tls/necko-core-arm64`. That sync has no feature mixed in. `reset --hard` and a force-push stay unused. The steps are in the baseline.
+1. Sync only. The local fast-forward to upstream `main` is done, with no feature mixed in. `d49bfd3`, `05b68fa`, and `da1df2c` are ancestors of this tip. `reset --hard` and a force-push stay unused. The GitHub branches move when this tip is pushed.
 2. Keep the platform guard on every later commit. A new product `.cpp` that includes an Apple header is wrapped before review.
 3. Leave the socket process off. With the preferences on, this xpcshell exits with signal 11 in `GeckoChildProcessHost::FillMacSandboxInfo`, reached from `SocketProcessHost::FillMacSandboxInfo`. `plugin-container.app` exists only in the donor objdir, after `mach build ipc/app --allow-subdirectory-build`. It is not a product file. `MOZ_DISABLE_SOCKET_PROCESS_SANDBOX=1` stayed a one-off diagnosis. Direct HTTP/3 stays on `libnecko_quic`.
 4. Keep the macOS wheel and zip on the fork release. Change `macos.url` only when a new zip URL exists. Leave the Windows URL unchanged. Leave tag `v0.2.1` where it is.
@@ -64,4 +65,4 @@ Open PR #5 (`linux-native`) is a separate line. It is not the macOS sync.
 
 ## What this note does not do
 
-It does not apply the font guard, merge the fork, or publish a new release. Those wait for a later change that follows the baseline.
+It does not retype the font guard. The guard arrives by the fast-forward. It does not publish a new release, and it does not push the fork.

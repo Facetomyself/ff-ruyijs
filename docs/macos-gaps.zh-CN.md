@@ -8,14 +8,15 @@
 
 ## 眼前的缺口
 
-fork 尖端没有 Windows 字体守卫，也没有 PR #6 之后的两次只改文档的提交。
+Windows 字体守卫在 `0a82adb` 上没有。快进到上游 `main` 之后，`d49bfd3`、`05b68fa` 和 `da1df2c` 都在 fork 尖端下面。这个尖端上的 `font_face_mac.cpp` 已是加了守卫的文件。把这个尖端推上去是另一步。推送之前，GitHub 上的三支仍停在 `0a82adb`。
 
 | 线 | 尖端 | `font_face_mac.cpp` 里的守卫 |
 | --- | --- | --- |
 | 上游 `cutetailbud/ff-ruyijs` 的 `main` | `da1df2ce375131eb37234dba4638a5ce0d96a532` | 有，提交 `d49bfd3` |
-| fork 的 `main`、`release/macos`、`tls/necko-core-arm64` | `0a82adb4e9c3ed1a046dde5953676c00442da59c` | 没有 |
+| 快进之后的本地 fork 分支 | 父提交 `da1df2c`，再加上这份文档 | 有 |
+| 推送之前的 GitHub fork 分支 | `0a82adb4e9c3ed1a046dde5953676c00442da59c` | 没有 |
 
-上游 `main` 已经通过合并 `0d42c60` 包含 `0a82adb`。fork 不包含 `d49bfd3`、`05b68fa` 和 `da1df2c`。
+上游 `main` 已经通过合并 `0d42c60` 包含 `0a82adb`。仍停在 `0a82adb` 的分支不包含 `d49bfd3`、`05b68fa` 和 `da1df2c`。
 
 `tools/product_sources.py` 的 `sources()` 编译每一个平铺的 `src/<domain>/*.cpp`。在 `0a82adb` 上，`font_face_mac.cpp` 直接包含 `<CoreText/CoreText.h>`，没有守卫。这个文件的 Windows 构建会停在这个包含上。上游 `main` 用 `#ifndef _WIN32` 包住了整个文件。
 
@@ -37,7 +38,7 @@ fork 尖端没有 Windows 字体守卫，也没有 PR #6 之后的两次只改�
 
 ## 目标
 
-1. 只做同步。把 fork 移到上游 `main`，让 `d49bfd3`、`05b68fa` 和 `da1df2c` 进入 `main`、`release/macos` 和 `tls/necko-core-arm64`。这次同步不混入功能。不使用 `reset --hard`，也不强推。步骤在底线文档里。
+1. 只做同步。本地快进到上游 `main` 已经完成，没有混入功能。`d49bfd3`、`05b68fa` 和 `da1df2c` 是这个尖端的祖先。不使用 `reset --hard`，也不强推。GitHub 上的分支等这个尖端被推送之后才移动。
 2. 之后的每次提交都守住平台守卫。新的产品 `.cpp` 若包含 Apple 头文件，审查前先包上守卫。
 3. socket process 保持关闭。偏好打开时，这只 xpcshell 在 `GeckoChildProcessHost::FillMacSandboxInfo` 里以信号 11 退出，调用来自 `SocketProcessHost::FillMacSandboxInfo`。`plugin-container.app` 只存在于 donor 的 objdir，来自 `mach build ipc/app --allow-subdirectory-build`。它不是产品文件。`MOZ_DISABLE_SOCKET_PROCESS_SANDBOX=1` 仍只是一次诊断。直连 HTTP/3 继续走 `libnecko_quic`。
 4. macOS wheel 和压缩包继续放在 fork Release 上。只有新的压缩包 URL 已经存在时才改 `macos.url`。Windows 的 URL 保持不动。标签 `v0.2.1` 留在原地。
@@ -64,4 +65,4 @@ COLRv1、Linux、Intel Mac、低于 macOS 26 的系统、GIF 像素对齐、额�
 
 ## 本说明不做什么
 
-本说明不补上字体守卫，不合并 fork，也不发布新的 Release。这些留到下一次按底线文档进行的改动。
+本说明不另行重写字体守卫。守卫由快进带入。本说明不发布新的 Release，也不推送 fork。

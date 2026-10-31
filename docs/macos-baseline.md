@@ -10,7 +10,7 @@ Further macOS work is based on upstream `cutetailbud/ff-ruyijs` `main`.
 
 Checked on 2026-10-31, that tip is `da1df2ce375131eb37234dba4638a5ce0d96a532`, subject `docs: show contributors under the sponsor as round avatars`. Read `main` again before the next sync. A new branch uses the tip read that day.
 
-The maintainer fork is `Facetomyself/ff-ruyijs`. Its `main`, `release/macos`, and `tls/necko-core-arm64` are at `0a82adb4e9c3ed1a046dde5953676c00442da59c`. That commit is an ancestor of upstream `main` through merge `0d42c60`. It does not contain the later upstream commits.
+The maintainer fork is `Facetomyself/ff-ruyijs`. Before the fast-forward, its `main`, `release/macos`, and `tls/necko-core-arm64` were at `0a82adb4e9c3ed1a046dde5953676c00442da59c`. That commit is an ancestor of upstream `main` through merge `0d42c60`. It does not itself contain `d49bfd3`. The fast-forward to `da1df2c` is what brings the guard in.
 
 Commits that matter, newest first on upstream `main`:
 
@@ -19,7 +19,7 @@ Commits that matter, newest first on upstream `main`:
 | `da1df2c` | Contributor avatars under the sponsor. Docs only. |
 | `05b68fa` | Credits PR #6 next to PR #4. Docs only. |
 | `0d42c60` | Merge of PR #6. Parents `48963a0` and `0a82adb`. |
-| `0a82adb` | Fork tip. QUIC ClientHello profiles and the published macOS wheel. |
+| `0a82adb` | Fork tip before the fast-forward. QUIC ClientHello profiles and the published macOS wheel. |
 | `48963a0` | Second merge of PR #4. WebTransport follow-up. |
 | `9219fed` | First merge of PR #4. |
 | `d49bfd3` | Windows guard around all of `src/web_geometry/font_face_mac.cpp`. |
