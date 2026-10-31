@@ -38,10 +38,10 @@ A later pass found the first gaps note still describing the GitHub branches as u
 
 ## Goals
 
-1. Sync only. Done: the fork fast-forwarded to upstream `main`, with no feature mixed into that sync, and the three GitHub branches sit at the documented tip. `d49bfd3`, `05b68fa`, and `da1df2c` are ancestors. `reset --hard` and a force-push stay unused.
-2. Keep the platform guard on every later commit. A new product `.cpp` that includes an Apple header is wrapped before review.
-3. Leave the socket process off. With the preferences on, this xpcshell exits with signal 11 in `GeckoChildProcessHost::FillMacSandboxInfo`, reached from `SocketProcessHost::FillMacSandboxInfo`. `plugin-container.app` exists only in the donor objdir, after `mach build ipc/app --allow-subdirectory-build`. It is not a product file. `MOZ_DISABLE_SOCKET_PROCESS_SANDBOX=1` stayed a one-off diagnosis. Direct HTTP/3 stays on `libnecko_quic`.
-4. Keep the macOS wheel and zip on the fork release. Change `macos.url` only when a new zip URL exists. Leave the Windows URL unchanged. Leave tag `v0.2.1` where it is.
+1. Sync only. Done: the fork fast-forwarded to upstream `main`, with no feature mixed into that sync, and the three GitHub branches sit at the documented tip. `d49bfd3`, `05b68fa`, and `da1df2c` are ancestors. `reset --hard` and a force-push stay unused. A later gaps commit may still be local until credentials allow a push.
+2. Keep the platform guard on every later commit. Verified on this tip: every Apple `CoreText` / `ImageIO` / `CoreGraphics` / `CoreFoundation` / `Security` include under `src/**/*.cpp` sits in a Darwin-only region (`#ifndef _WIN32` or the `#else` of `#ifdef _WIN32`). Fifteen includes across twelve files. A new product `.cpp` that includes an Apple header is wrapped before review.
+3. Leave the socket process off. Verified: `necko_fetch.js` keeps both socket-process prefs false, `necko_client.py` sets `MOZ_DISABLE_SOCKET_PROCESS=1`, and `MOZ_DISABLE_SOCKET_PROCESS_SANDBOX` is absent from `src/` and `python/`. With the preferences on, this xpcshell exits with signal 11 in `GeckoChildProcessHost::FillMacSandboxInfo`, reached from `SocketProcessHost::FillMacSandboxInfo`. `plugin-container.app` exists only in the donor objdir, after `mach build ipc/app --allow-subdirectory-build`. It is not a product file. Direct HTTP/3 stays on `libnecko_quic`.
+4. Keep the macOS wheel and zip on the fork release. Verified: release `v0.2.1` on `Facetomyself/ff-ruyijs` still lists both assets; the zip size and sha256 match `runtime.json` `macos`; the Windows `url` still points at `cutetailbud`. Change `macos.url` only when a new zip URL exists. Leave the Windows URL unchanged. Leave tag `v0.2.1` where it is.
 
 ## Closed in `0a82adb`
 

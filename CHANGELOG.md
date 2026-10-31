@@ -7,7 +7,7 @@ All notable changes to this project are documented here. The format follows
 
 ### Changed
 
-- `docs/macos-gaps.md` and `docs/macos-gaps.zh-CN.md` record the pushed fork tip (`c69875b`), the post-sync macOS rebuild, and the `example.com` smoke after the Windows font guard landed by fast-forward.
+- `docs/macos-gaps.md` and `docs/macos-gaps.zh-CN.md` record the pushed fork tip (`c69875b`), the post-sync macOS rebuild, the `example.com` smoke after the Windows font guard landed by fast-forward, the Apple-header guard audit, the socket-process product flags, and the fork-release zip size and sha256 check.
 
 ### Added
 
