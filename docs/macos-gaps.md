@@ -4,16 +4,17 @@ Status after upstream merged PR #4 and PR #6. Rules for the next change are in [
 
 The same status is written in [macos-gaps.zh-CN.md](macos-gaps.zh-CN.md).
 
-Checked on 2026-10-31.
+Checked on 2026-11-01.
 
 ## Sync status
 
-The Windows font guard was absent on `0a82adb`. The fast-forward to upstream `main` brought in `d49bfd3`, `05b68fa`, and `da1df2c`. The fork tip on GitHub is `c69875b` on `main`, `release/macos`, and `tls/necko-core-arm64`. `font_face_mac.cpp` on that tip is the guarded file.
+The Windows font guard was absent on `0a82adb`. The fast-forward to upstream `main` brought in `d49bfd3`, `05b68fa`, and `da1df2c`. Upstream then advanced to `fd094ed` (Firefox 159 CI wheels). This checkout merged that tip into the local gaps line as `3aad54a`; later gaps docs may sit on that merge. The fork tip still published on GitHub is `c69875b` on `main`, `release/macos`, and `tls/necko-core-arm64` until credentials allow a push. `font_face_mac.cpp` on every tip below is the guarded file.
 
 | Line | Tip | Guard in `font_face_mac.cpp` |
 | --- | --- | --- |
-| Upstream `cutetailbud/ff-ruyijs` `main` | `da1df2ce375131eb37234dba4638a5ce0d96a532` | Yes, commit `d49bfd3` |
-| Maintainer fork branches after the push | `c69875b` (docs on top of `da1df2c`) | Yes |
+| Upstream `cutetailbud/ff-ruyijs` `main` | `fd094ed4d04f17a81c53e71c764b6788f3198183` | Yes, commit `d49bfd3` |
+| Local maintainer line after the merge | `3aad54a` and later gaps docs on top | Yes |
+| Maintainer fork branches on GitHub | `c69875b` (docs on top of `da1df2c`) | Yes |
 | Historical tip before the fast-forward | `0a82adb4e9c3ed1a046dde5953676c00442da59c` | No |
 
 Upstream `main` already contains `0a82adb` through merge `0d42c60`. A branch that is still at `0a82adb` does not contain `d49bfd3`, `05b68fa`, or `da1df2c`.
@@ -38,7 +39,7 @@ A later pass found the first gaps note still describing the GitHub branches as u
 
 ## Goals
 
-1. Sync only. Done: the fork fast-forwarded to upstream `main`, with no feature mixed into that sync, and the three GitHub branches sit at the documented tip. `d49bfd3`, `05b68fa`, and `da1df2c` are ancestors. `reset --hard` and a force-push stay unused. A later gaps commit may still be local until credentials allow a push.
+1. Sync only. Done locally: the fork fast-forwarded through `da1df2c`, then merged `fd094ed` into the gaps line as `3aad54a` with no feature mixed into either sync. `d49bfd3`, `05b68fa`, `da1df2c`, and `fd094ed` are ancestors. `reset --hard` and a force-push stay unused. GitHub still publishes `c69875b` until credentials allow a push of the merge and the later gaps commits.
 2. Keep the platform guard on every later commit. Verified on this tip: every Apple `CoreText` / `ImageIO` / `CoreGraphics` / `CoreFoundation` / `Security` include under `src/**/*.cpp` sits in a Darwin-only region (`#ifndef _WIN32` or the `#else` of `#ifdef _WIN32`). Fifteen includes across twelve files. A new product `.cpp` that includes an Apple header is wrapped before review.
 3. Leave the socket process off. Verified: `necko_fetch.js` keeps both socket-process prefs false, `necko_client.py` sets `MOZ_DISABLE_SOCKET_PROCESS=1`, and `MOZ_DISABLE_SOCKET_PROCESS_SANDBOX` is absent from `src/` and `python/`. With the preferences on, this xpcshell exits with signal 11 in `GeckoChildProcessHost::FillMacSandboxInfo`, reached from `SocketProcessHost::FillMacSandboxInfo`. `plugin-container.app` exists only in the donor objdir, after `mach build ipc/app --allow-subdirectory-build`. It is not a product file. Direct HTTP/3 stays on `libnecko_quic`.
 4. Keep the macOS wheel and zip on the fork release. Verified: release `v0.2.1` on `Facetomyself/ff-ruyijs` still lists both assets; the zip size and sha256 match `runtime.json` `macos`; the Windows `url` still points at `cutetailbud`. Change `macos.url` only when a new zip URL exists. Leave the Windows URL unchanged. Leave tag `v0.2.1` where it is.

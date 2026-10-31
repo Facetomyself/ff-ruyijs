@@ -8,14 +8,15 @@
 
 后续 macOS 工作以上游 `cutetailbud/ff-ruyijs` 的 `main` 为底。
 
-2026-10-31 核对时，这个尖端是 `da1df2ce375131eb37234dba4638a5ce0d96a532`，说明是 `docs: show contributors under the sponsor as round avatars`。下一次同步前再读一次 `main`。新分支用当天读到的尖端。
+2026-11-01 核对时，这个尖端是 `fd094ed4d04f17a81c53e71c764b6788f3198183`，说明是 `ci: build the Windows and macOS wheels from the Firefox 159.0 submodule`。下一次同步前再读一次 `main`。新分支用当天读到的尖端。
 
-维护方 fork 是 `Facetomyself/ff-ruyijs`。快进之前，它的 `main`、`release/macos` 和 `tls/necko-core-arm64` 停在 `0a82adb4e9c3ed1a046dde5953676c00442da59c`。该提交经合并 `0d42c60` 成为上游 `main` 的祖先，本身不包含 `d49bfd3`。快进到 `da1df2c` 才会把守卫带进来。
+维护方 fork 是 `Facetomyself/ff-ruyijs`。快进之前，它的 `main`、`release/macos` 和 `tls/necko-core-arm64` 停在 `0a82adb4e9c3ed1a046dde5953676c00442da59c`。该提交经合并 `0d42c60` 成为上游 `main` 的祖先，本身不包含 `d49bfd3`。快进到 `da1df2c` 才会把守卫带进来。那次快进之后上游又前进到 `fd094ed`；已经带着 gaps 文档停在 `da1df2c` 上的 fork 线合并 `fd094ed`，而不是重置。
 
 上游 `main` 上需要记住的提交，从新到旧：
 
 | 提交 | 内容 |
 | --- | --- |
+| `fd094ed` | 用 Firefox 159.0 子模块在 CI 里编 Windows 与 macOS wheel。 |
 | `da1df2c` | 赞助者下方的贡献者圆头像。只改文档。 |
 | `05b68fa` | 在 PR #4 旁边补上 PR #6 的署名。只改文档。 |
 | `0d42c60` | 合并 PR #6。父提交是 `48963a0` 和 `0a82adb`。 |
@@ -30,7 +31,7 @@
 
 下一次同步把上游 `main` 带进 fork，这次同步本身不带功能改动。
 
-上面核对的 `main` 仍以 `0a82adb` 为祖先，因此同步是把 fork 分支快进到那个 `main`。这次快进带入 `d49bfd3`、`05b68fa` 和 `da1df2c`。
+上面核对的 `main` 仍以 `0a82adb` 为祖先。第一次同步把 fork 分支快进过 `da1df2c`，带入 `d49bfd3`、`05b68fa` 和 `da1df2c`。第二次同步把 `fd094ed` 合并进已经停在那个尖端上的 gaps 线。
 
 再把 `0a82adb` 当成当前线推上去，守卫和后面的文档提交就会留在外面。历史若已经分叉，就合并上游 `main`。不使用 `reset --hard`，也不强推。
 

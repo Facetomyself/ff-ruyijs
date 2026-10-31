@@ -4,16 +4,17 @@
 
 同一份状态的英文版在 [macos-gaps.md](macos-gaps.md)。
 
-核对日期是 2026-10-31。
+核对日期是 2026-11-01。
 
 ## 同步状态
 
-Windows 字体守卫在 `0a82adb` 上没有。快进到上游 `main` 之后，`d49bfd3`、`05b68fa` 和 `da1df2c` 都已进入。GitHub 上 fork 的 `main`、`release/macos` 和 `tls/necko-core-arm64` 尖端是 `c69875b`。这个尖端上的 `font_face_mac.cpp` 已是加了守卫的文件。
+Windows 字体守卫在 `0a82adb` 上没有。快进到上游 `main` 之后，`d49bfd3`、`05b68fa` 和 `da1df2c` 都已进入。上游随后前进到 `fd094ed`（Firefox 159 的 CI wheel）。本检出把该尖端合并进本地 gaps 线，得到 `3aad54a`；之后的 gaps 文档可能叠在这次合并之上。凭据允许推送之前，GitHub 上 fork 的 `main`、`release/macos` 和 `tls/necko-core-arm64` 仍停在 `c69875b`。下面每一行尖端上的 `font_face_mac.cpp` 都已加守卫。
 
 | 线 | 尖端 | `font_face_mac.cpp` 里的守卫 |
 | --- | --- | --- |
-| 上游 `cutetailbud/ff-ruyijs` 的 `main` | `da1df2ce375131eb37234dba4638a5ce0d96a532` | 有，提交 `d49bfd3` |
-| 推送之后的维护方 fork 分支 | `c69875b`（在 `da1df2c` 上的文档） | 有 |
+| 上游 `cutetailbud/ff-ruyijs` 的 `main` | `fd094ed4d04f17a81c53e71c764b6788f3198183` | 有，提交 `d49bfd3` |
+| 合并之后的本地维护方线 | `3aad54a` 及其上的后续 gaps 文档 | 有 |
+| GitHub 上的维护方 fork 分支 | `c69875b`（在 `da1df2c` 上的文档） | 有 |
 | 快进之前的历史尖端 | `0a82adb4e9c3ed1a046dde5953676c00442da59c` | 没有 |
 
 上游 `main` 已经通过合并 `0d42c60` 包含 `0a82adb`。仍停在 `0a82adb` 的分支不包含 `d49bfd3`、`05b68fa` 和 `da1df2c`。
@@ -38,7 +39,7 @@ Windows 字体守卫在 `0a82adb` 上没有。快进到上游 `main` 之后，`d
 
 ## 目标
 
-1. 只做同步。已完成：fork 已快进到上游 `main`，同步本身没有混入功能，GitHub 上三支都在文档记录的尖端。`d49bfd3`、`05b68fa` 和 `da1df2c` 是祖先。不使用 `reset --hard`，也不强推。之后的 gaps 提交在凭据可用之前可能仍只在本地。
+1. 只做同步。本地已完成：fork 已快进过 `da1df2c`，再把 `fd094ed` 合并进 gaps 线得到 `3aad54a`，两次同步都没有混入功能。`d49bfd3`、`05b68fa`、`da1df2c` 和 `fd094ed` 都是祖先。不使用 `reset --hard`，也不强推。凭据允许推送合并与后续 gaps 提交之前，GitHub 仍公布 `c69875b`。
 2. 之后的每次提交都守住平台守卫。本尖端已核对：`src/**/*.cpp` 里每一处 Apple 的 `CoreText` / `ImageIO` / `CoreGraphics` / `CoreFoundation` / `Security` 包含都在 Darwin 区域（`#ifndef _WIN32`，或 `#ifdef _WIN32` 的 `#else`）。十二个文件、十五处包含。新的产品 `.cpp` 若包含 Apple 头文件，审查前先包上守卫。
 3. socket process 保持关闭。已核对：`necko_fetch.js` 里两个 socket process 偏好为 false，`necko_client.py` 设置 `MOZ_DISABLE_SOCKET_PROCESS=1`，`src/` 与 `python/` 中没有 `MOZ_DISABLE_SOCKET_PROCESS_SANDBOX`。偏好打开时，这只 xpcshell 在 `GeckoChildProcessHost::FillMacSandboxInfo` 里以信号 11 退出，调用来自 `SocketProcessHost::FillMacSandboxInfo`。`plugin-container.app` 只存在于 donor 的 objdir，来自 `mach build ipc/app --allow-subdirectory-build`。它不是产品文件。直连 HTTP/3 继续走 `libnecko_quic`。
 4. macOS wheel 和压缩包继续放在 fork Release 上。已核对：`Facetomyself/ff-ruyijs` 的 `v0.2.1` 仍挂着两份附件；压缩包的大小和 sha256 与 `runtime.json` 的 `macos` 一致；Windows 的 `url` 仍指向 `cutetailbud`。只有新的压缩包 URL 已经存在时才改 `macos.url`。Windows 的 URL 保持不动。标签 `v0.2.1` 留在原地。

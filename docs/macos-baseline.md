@@ -8,14 +8,15 @@ The same rules are written in [macos-baseline.zh-CN.md](macos-baseline.zh-CN.md)
 
 Further macOS work is based on upstream `cutetailbud/ff-ruyijs` `main`.
 
-Checked on 2026-10-31, that tip is `da1df2ce375131eb37234dba4638a5ce0d96a532`, subject `docs: show contributors under the sponsor as round avatars`. Read `main` again before the next sync. A new branch uses the tip read that day.
+Checked on 2026-11-01, that tip is `fd094ed4d04f17a81c53e71c764b6788f3198183`, subject `ci: build the Windows and macOS wheels from the Firefox 159.0 submodule`. Read `main` again before the next sync. A new branch uses the tip read that day.
 
-The maintainer fork is `Facetomyself/ff-ruyijs`. Before the fast-forward, its `main`, `release/macos`, and `tls/necko-core-arm64` were at `0a82adb4e9c3ed1a046dde5953676c00442da59c`. That commit is an ancestor of upstream `main` through merge `0d42c60`. It does not itself contain `d49bfd3`. The fast-forward to `da1df2c` is what brings the guard in.
+The maintainer fork is `Facetomyself/ff-ruyijs`. Before the fast-forward, its `main`, `release/macos`, and `tls/necko-core-arm64` were at `0a82adb4e9c3ed1a046dde5953676c00442da59c`. That commit is an ancestor of upstream `main` through merge `0d42c60`. It does not itself contain `d49bfd3`. The fast-forward to `da1df2c` is what brings the guard in. After that fast-forward, upstream advanced again to `fd094ed`; the fork line that already carried gaps docs on top of `da1df2c` merges `fd094ed` instead of resetting.
 
 Commits that matter, newest first on upstream `main`:
 
 | Commit | What it is |
 | --- | --- |
+| `fd094ed` | CI builds Windows and macOS wheels from the Firefox 159.0 submodule. |
 | `da1df2c` | Contributor avatars under the sponsor. Docs only. |
 | `05b68fa` | Credits PR #6 next to PR #4. Docs only. |
 | `0d42c60` | Merge of PR #6. Parents `48963a0` and `0a82adb`. |
@@ -30,7 +31,7 @@ The upstream author commented on PR #4 that the Windows build stopped at `<CoreT
 
 The next sync brings upstream `main` into the fork and contains no feature change.
 
-`0a82adb` is an ancestor of the `main` checked above, so the sync fast-forwards the fork branches to that `main`. That fast-forward is what brings in `d49bfd3`, `05b68fa`, and `da1df2c`.
+`0a82adb` is an ancestor of the `main` checked above. The first sync fast-forwarded the fork branches through `da1df2c`, which brought in `d49bfd3`, `05b68fa`, and `da1df2c`. The second sync merges `fd094ed` into the gaps line that already sat on that tip.
 
 Pushing `0a82adb` again as the current line leaves the guard and the later docs commits out. If the histories have diverged, merge upstream `main`. `reset --hard` and a force-push stay unused.
 

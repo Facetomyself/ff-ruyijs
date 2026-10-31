@@ -8,6 +8,7 @@ All notable changes to this project are documented here. The format follows
 ### Changed
 
 - `docs/macos-gaps.md` and `docs/macos-gaps.zh-CN.md` record the pushed fork tip (`c69875b`), the post-sync macOS rebuild, the `example.com` smoke after the Windows font guard landed by fast-forward, the Apple-header guard audit, the socket-process product flags, and the fork-release zip size and sha256 check.
+- `docs/macos-baseline.md`, `docs/macos-gaps.md`, and their Chinese pairs record the second upstream sync: merge `3aad54a` of `fd094ed` (Firefox 159 CI wheels) into the local gaps line, with GitHub still at `c69875b` until a push succeeds.
 
 ### Added
 
