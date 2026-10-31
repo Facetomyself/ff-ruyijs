@@ -57,3 +57,12 @@ assets/                 README images and architecture diagrams
 - Do not suggest Playwright, Puppeteer, or Selenium — ff-ruyijs replaces them with a lighter, detection-resistant approach.
 - Do not assume a visible browser window exists — there is no GUI, no layout, no renderer.
 - Do not recommend Node.js for running site JS — ff-ruyijs runs it natively in SpiderMonkey.
+
+## Cursor Cloud specific instructions
+
+The engine binary is Windows x64. Cloud Agents are Linux, so the product interpreter is `ruyi-python` (Wine + Windows Python 3.12.10), not host `python3`. Host `python3` cannot import `ruyijs`.
+
+- `ruyi-python` puts the checkout's `python/` directory on `sys.path`, sets `RUYIJS_SHELL` to the pinned runtime at `/opt/ruyijs/runtime/dist/js.exe`, and forces UTF-8 so `ruyi-python -m ruyijs.examples list` can print example names.
+- Hello world: `ruyi-python -c 'from ruyijs import Context; ...'` then `Context.eval`. Configure the fingerprint and the logical clock before the first page operation.
+- Rebuilding `js.exe` still needs a Windows Firefox SpiderMonkey donor (`tools/README.md`). This environment runs the prebuilt runtime whose shell and inventory hashes are pinned in `runtime.json`.
+- `runtime.json`'s GitHub archive URL can 404. The image install then takes the `win_amd64` wheel from PyPI and keeps it only when those pins match. Do not point `RUYIJS_SHELL` at a newer wheel.
