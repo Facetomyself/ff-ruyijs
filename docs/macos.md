@@ -2,7 +2,7 @@
 
 This is the maintainer path for the macOS shell. Windows x64 still installs from the PyPI wheel. macOS builds a `macosx_26_0_arm64` wheel after `dist/js` and `dist/libmozglue.dylib` exist. `runtime.json` records that archive's size, sha256, and fork-release URL. The wheel is not uploaded to PyPI.
 
-The same facts are written in [macos.zh-CN.md](macos.zh-CN.md).
+The same facts are written in [macos.zh-CN.md](macos.zh-CN.md). Maintenance rules are in [macos-baseline.md](macos-baseline.md). Current gaps and goals are in [macos-gaps.md](macos-gaps.md).
 
 ## What the macOS port adds
 
@@ -153,7 +153,7 @@ The DataDome example's homepage result is a server score. It is not a missing Ma
 
 ## Comparison with Windows
 
-Reviewed against upstream `a626670`. That range includes the 0.2.1 shell, the CSSOM and iframe timing commits, and the AGPL-3.0-only license change. A row marked "same source" is unfinished on both platforms. This table describes the merged macOS shell. The previous local wheel and runtime zip were not rebuilt, and that zip is not a 0.2.1 archive.
+Reviewed against upstream `a626670`. That range includes the 0.2.1 shell, the CSSOM and iframe timing commits, and the AGPL-3.0-only license change. A row marked "same source" is unfinished on both platforms. This table describes the merged macOS shell. The 0.2.1 macOS wheel and runtime zip are on the fork release. Current gaps are in [macos-gaps.md](macos-gaps.md).
 
 | Surface | Windows | macOS |
 | --- | --- | --- |
@@ -193,7 +193,7 @@ The shell stays linked for `macosx_26_0_arm64`. Linux, Intel Macs, and macOS old
 
 ## What not to commit
 
-Do not commit the Firefox tree, either objdir, `dist/js`, the helper venv, the macOS runtime zip, `libnecko_quic.dylib`, `neqo-server`, `native/necko_quic/Cargo.lock`, cookies, tokens, proxy credentials, or response bodies. The macOS `runtime.json` object stores size, sha256, and the fork-release URL. Do not commit the zip itself.
+Do not commit the Firefox tree, either objdir, `dist/js`, the helper venv, the macOS runtime zip, `libnecko_quic.dylib`, `neqo-server`, `native/necko_quic/Cargo.lock`, cookies, tokens, proxy credentials, or response bodies. The macOS `runtime.json` object stores size, sha256, and the fork-release URL. Do not commit the zip itself. The full floor is in [macos-baseline.md](macos-baseline.md).
 
 ## Reporting a macOS issue
 
@@ -201,7 +201,7 @@ Include the ruyijs commit, the macOS version, the Xcode version, the Python vers
 
 ## Maintainer fork
 
-Upstream `main` stays the Windows release line. On the macOS maintainer fork, fixes land on `release/macos` first and that fork's `main` fast-forwards to the same commit. An upstream update is merged on a branch cut from `release/macos`, reviewed, and merged back. It is not merged into that fork's `main` directly.
+Further macOS work is based on upstream `cutetailbud/ff-ruyijs` `main`. The fork branches at `0a82adb` do not contain the Windows guard. Rules for the next sync, commits, and releases are in [macos-baseline.md](macos-baseline.md). Current gaps and goals are in [macos-gaps.md](macos-gaps.md).
 
 ## Closed route
 

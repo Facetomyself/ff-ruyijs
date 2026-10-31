@@ -2,7 +2,7 @@
 
 这是 Mac 外壳的维护路径。Windows x64 仍然从 PyPI wheel 安装。macOS 在本机已经有 `dist/js` 和 `dist/libmozglue.dylib` 之后，可以打出 `macosx_26_0_arm64` wheel。`runtime.json` 记下这份压缩包的大小、sha256 和维护者 fork Release 的 URL。这个 wheel 不上传到 PyPI。
 
-同一份事实的英文版在 [macos.md](macos.md)。
+同一份事实的英文版在 [macos.md](macos.md)。维护规则在 [macos-baseline.zh-CN.md](macos-baseline.zh-CN.md)。当前缺口和目标在 [macos-gaps.zh-CN.md](macos-gaps.zh-CN.md)。
 
 ## 这个移植加了什么
 
@@ -153,7 +153,7 @@ DataDome 示例的首页结果是服务端评分，不是缺少的 Mac 绑定。
 
 ## 和 Windows 的比对
 
-对照上游 `a626670`。这段范围包含 0.2.1 外壳、CSSOM 与 iframe 计时，以及改为 AGPL-3.0-only 的许可证。写着「同一份源码」的行，两边都还没做完。这张表描述的是合并后的 macOS 外壳。上一份本地 wheel 和运行时压缩包没有重打，那份压缩包也不是 0.2.1。
+对照上游 `a626670`。这段范围包含 0.2.1 外壳、CSSOM 与 iframe 计时，以及改为 AGPL-3.0-only 的许可证。写着「同一份源码」的行，两边都还没做完。这张表描述的是合并后的 macOS 外壳。0.2.1 的 macOS wheel 和运行时压缩包在 fork Release 上。当前缺口见 [macos-gaps.zh-CN.md](macos-gaps.zh-CN.md)。
 
 | 表面 | Windows | macOS |
 | --- | --- | --- |
@@ -193,7 +193,7 @@ DataDome 示例的首页结果是服务端评分，不是缺少的 Mac 绑定。
 
 ## 不要提交的东西
 
-不要提交 Firefox 树、两份 objdir、`dist/js`、helper venv、macOS 运行时压缩包、`libnecko_quic.dylib`、`neqo-server`、`native/necko_quic/Cargo.lock`、cookie、token、代理凭据或响应正文。`runtime.json` 的 macOS 对象记下大小、sha256 和 fork Release 的 URL。不要把压缩包本身提交进 git。
+不要提交 Firefox 树、两份 objdir、`dist/js`、helper venv、macOS 运行时压缩包、`libnecko_quic.dylib`、`neqo-server`、`native/necko_quic/Cargo.lock`、cookie、token、代理凭据或响应正文。`runtime.json` 的 macOS 对象记下大小、sha256 和 fork Release 的 URL。不要把压缩包本身提交进 git。完整底线在 [macos-baseline.zh-CN.md](macos-baseline.zh-CN.md)。
 
 ## 报告 macOS 问题
 
@@ -201,7 +201,7 @@ DataDome 示例的首页结果是服务端评分，不是缺少的 Mac 绑定。
 
 ## 维护方自己的 fork
 
-上游 `main` 仍是 Windows 发布线。在 macOS 维护方的 fork 上，修正先进入 `release/macos`，该 fork 的 `main` 再快进到同一提交。上游更新从 `release/macos` 拉出分支合并、审查，再合并回去，不直接合并进该 fork 的 `main`。
+后续 macOS 工作以上游 `cutetailbud/ff-ruyijs` 的 `main` 为底。fork 上停在 `0a82adb` 的分支还没有 Windows 守卫。下一次同步、提交和发布的规则写在 [macos-baseline.zh-CN.md](macos-baseline.zh-CN.md)。当前缺口和目标写在 [macos-gaps.zh-CN.md](macos-gaps.zh-CN.md)。
 
 ## 闭源路线
 

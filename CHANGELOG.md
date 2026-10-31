@@ -7,6 +7,7 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- `docs/macos-baseline.md` and `docs/macos-gaps.md`, with Chinese pairs, record the maintenance floor and the current gaps. Further macOS work is based on upstream `main`. The fork tip `0a82adb` does not contain the Windows guard in `font_face_mac.cpp`.
 - `docs/macos.md` and `docs/macos.zh-CN.md` record the 0.2.1 comparison. The C client install name is `@rpath`. `Context(tls=)` reaches the xpcshell environment and is not read there. Same-process HTTP/3 can be version 30 after a remembered `Alt-Svc`. The socket process stays off.
 - macOS arm64 source build of the shell. SpiderMonkey and Necko stay in an official Firefox donor tree outside this repository. Maintainer steps and the verified HTTP/1.1 and HTTP/2 path are in `docs/macos.md` and `docs/macos.zh-CN.md`.
 - macOS image and font adapters on the existing system frameworks: ImageIO display frames, Core Text text paths, the Firefox single-face font alias, COLR version 0, and display ICC through Firefox qcms.

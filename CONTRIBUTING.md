@@ -37,7 +37,7 @@ relevant [owner record](./docs/owners) first. The essentials:
 Please include the ruyijs version or commit, your Windows version or your macOS version
 and Xcode version, the Firefox tag, and which of the two donor objdirs the build used.
 Also include a minimal script, the actual output and, where possible, what real Firefox
-returns for the same code. macOS maintainers follow [docs/macos.md](./docs/macos.md).
+returns for the same code. macOS maintainers follow [docs/macos.md](./docs/macos.md), [docs/macos-baseline.md](./docs/macos-baseline.md), and [docs/macos-gaps.md](./docs/macos-gaps.md).
 
 ff-ruyijs is dual-licensed under the [AGPL-3.0](./LICENSE) and a
 [commercial license](./COMMERCIAL-LICENSE.md). By submitting a contribution you
