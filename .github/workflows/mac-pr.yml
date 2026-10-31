@@ -1,0 +1,40 @@
+# Minimal CI for the macOS maintainer line.
+# Does not build donor Firefox / dist/js; that stays on real macOS hardware.
+name: Mac PR Guard
+
+on:
+  push:
+    branches: [release/macos]
+  pull_request:
+    branches: [release/macos]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  lint-python:
+    name: Lint Python (Mac line)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Byte-compile
+        run: python -m compileall -q python/ruyijs ci tools
+      - name: pyflakes
+        run: |
+          python -m pip install --quiet pyflakes
+          python -m pyflakes python/ruyijs ci
+
+  mac-guard:
+    name: Mac docs and header guards
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Run mac_pr_guard
+        run: python ci/mac_pr_guard.py
