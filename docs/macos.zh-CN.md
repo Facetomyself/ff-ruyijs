@@ -105,7 +105,7 @@ Windows 上同一次构建只复制 `oneshot.py`。Darwin 的 venv 不存在时�
 
 外壳二进制是 `dist/js`。跑示例时把 `RUYIJS_SHELL` 指到它，并把 `python/` 放进 `PYTHONPATH`。客户端库是 `libruyijs_client.dylib`。
 
-本地 wheel 的标签是 `macosx_26_0_arm64`。外壳放在 `_runtime/dist/js`，donor 的 xpcshell 闭包复制到 `_runtime/dist/necko`。库文件存在时，一并复制 `libnecko_quic.dylib`。wheel 里还有 `necko/closed_route.py`、`necko/core_client.py` 和 `necko_win`。wheel 和 `ruyijs-runtime-macos-arm64.zip` 放在维护者 fork 的 Release 上，不放上 PyPI。重新生成压缩包用 `python3.12 -B tools/macos_runtime.py <zip路径>`，再把打印出的 size、sha256 和 Release URL 写进 `runtime.json` 的 `macos`。
+本地 wheel 的标签是 `macosx_26_0_arm64`。外壳放在 `_runtime/dist/js`，donor 的 xpcshell 闭包复制到 `_runtime/dist/necko`。库文件存在时，一并复制 `libnecko_quic.dylib`。wheel 里还有 `necko/closed_route.py`、`necko/core_client.py` 和 `necko_win`。PyPI 上的 wheel 不带 xpcshell。fork `v0.2.1` 的压缩包仍是 `runtime.json` 的 `macos.url`。带 xpcshell 的是 donor 构建。重新生成压缩包用 `python3.12 -B tools/macos_runtime.py <zip路径>`，再把打印出的 size、sha256 和 Release URL 写进 `runtime.json` 的 `macos`。
 
 ## 一次请求怎么走
 
@@ -175,7 +175,7 @@ DataDome 示例的首页结果是服务端评分，不是缺少的 Mac 绑定。
 | iframe 文档加载 | 同一份源码。Necko 时刻经 QueryPerformanceCounter 换算 | 同一份源码。时刻经 `steady_clock` 的毫秒换算，与 `page_navigation.cpp` 相同。一个 iframe 文档返回状态 200 和 `h2` |
 | WebCodecs、音频解码、WebGPU、自定义内置元素、XML、表单目标 | 同一份源码 | 只有接口，或者明确返回未实现 |
 | DataDome 首页 | 服务端评分 | 服务端评分。示例的通过条件不变 |
-| 安装 | PyPI 的 0.2.1 `win_amd64` wheel | `macosx_26_0_arm64` wheel 和 `ruyijs-runtime-macos-arm64.zip` 在 fork Release `v0.2.1`。`runtime.json` 的 `macos.url` 指向这份压缩包。两者都不在 PyPI |
+| 安装 | PyPI 的 0.2.1 `win_amd64` wheel | PyPI 上的 `macosx_26_0_arm64` wheel 不带 xpcshell。fork `v0.2.1` 的压缩包仍是 `runtime.json` 的 `macos.url`。带 xpcshell 的是 donor 构建 |
 | C ABI 客户端 | 外壳旁边的 DLL | `libruyijs_client.dylib` 的安装名是 `@rpath/libruyijs_client.dylib`，rpath 为 `@executable_path`。XUL、xpcshell、NSS 的安装名保持 Firefox 写好的样子 |
 
 `image_wic.h` 里仍有一段 POSIX 桩。macOS 的解码走 `image_codec.cpp` 和 `image_gif.cpp` 里的 ImageIO。
@@ -189,7 +189,7 @@ DataDome 示例的首页结果是服务端评分，不是缺少的 Mac 绑定。
 3. C 客户端安装名已经完成。`otool -D` 打印 `@rpath/libruyijs_client.dylib`，rpath 是 `@executable_path`。
 4. 图像像素。继续用 ImageIO。可以用一条夹具记下 GIF 背景色差异。只有 ImageIO 已经提供对应 disposal 时才改像素。
 5. 字体别名。Mac 只保留 `Osaka-Mono` 到 `Osaka`。字体选择仍走 Core Text 回退。上游的语言偏好、SimSun 和 Arial 列表留在 `font_collection.cpp` 的 Windows 一侧。Windows 的缓存分隔符保持源码转义 `'\0'`，文件因此仍是文本。
-6. 发布。`runtime.json` 的 `macos.url` 是 fork Release `v0.2.1` 的压缩包。同一份 Release 里有 `ruyijs-0.2.1-py3-none-macosx_26_0_arm64.whl`。两者都不在 PyPI。干净安装可以导入。直连 HTTPS 返回状态 200、版本码 20。本机 HTTP/3 的第二次请求返回状态 200、版本码 30。`libnecko_quic.dylib` 从打包后的 `dist/necko` 加载。COLRv1、Linux、Intel Mac，以及低于 macOS 26 的系统都不做。
+6. 发布。PyPI 上的 wheel 不带 xpcshell。fork `v0.2.1` 的压缩包仍是 `runtime.json` 的 `macos.url`。带 xpcshell 的是 donor 构建。同一份 Release 里有 `ruyijs-0.2.1-py3-none-macosx_26_0_arm64.whl`。干净安装可以导入。直连 HTTPS 返回状态 200、版本码 20。本机 HTTP/3 的第二次请求返回状态 200、版本码 30。`libnecko_quic.dylib` 从打包后的 `dist/necko` 加载。COLRv1、Linux、Intel Mac，以及低于 macOS 26 的系统都不做。
 
 ## 不要提交的东西
 

@@ -27,6 +27,8 @@ Other Apple includes in this tree sit inside `#ifndef _WIN32`, or inside the `#e
 
 The upstream author did not run the macOS half when merging. After the fast-forward, this checkout rebuilt with `MACOSX_DEPLOYMENT_TARGET=26.0` against the SpiderMonkey and browser donors, linked `web_geometry_font_face_mac`, and retested the product: `Context.eval('1+1')` returned 2, and `navigate('https://example.com/')` reached status 200 with title `Example Domain`. This checkout has not rebuilt Windows on upstream `main`. The author's Windows result stays that comment: the guarded tree built with the same compile and link commands, and the C ABI, installed-wheel smoke, CreepJS (96 sections), and a 64-probe suite behaved as before.
 
+This round, on 2026-11-01, rebuilt `dist/js` again for the shared 0.3.0 sources. `git fetch upstream main` still showed `6d45317`, already an ancestor of `87416f3`, so this round did not merge. The build used `MACOSX_DEPLOYMENT_TARGET=26.0`, SpiderMonkey donor `../firefox-159/obj-js-standalone`, and browser donor `../firefox-159/obj-necko`. `LINUX_ONLY` units stayed out of the macOS link: `openssl_backend.cpp`, `font_posix.cpp`, `svg_path_posix.cpp`, `image_codec_native.cpp`, and `image_composition_posix.cpp`. `Context.eval('1+1')` returned 2. `navigate('https://example.com/')` reached status 200 with title `Example Domain`. Bootstrap was not run again. No wheel was built, and `runtime.json` `macos.url` stayed the fork `v0.2.1` zip.
+
 ## Docs brought in line
 
 Two passages in `docs/macos.md` and `docs/macos.zh-CN.md` contradicted the post-merge status and were replaced while writing the first gaps note.
@@ -50,7 +52,7 @@ These are not open gaps.
 
 - QUIC ClientHello counts match at the 16 fork points inside the existing `libnecko_quic` and Neqo 0.32.0. After CRYPTO reassembly, 16 versions printed ok and the failed count was 0. The first Initial packet alone is not a complete ClientHello when later bytes are split across packets. Records are not byte-identical. There is no JA3 score.
 - A clean install imported. Direct HTTPS returned status 200 and version 20. A local HTTP/3 first response was status 200 and version 11. The second response was status 200 and version 30. `libnecko_quic.dylib` loaded from the packaged `dist/necko` directory.
-- The wheel and `ruyijs-runtime-macos-arm64.zip` are on the fork release `v0.2.1`. `runtime.json` `macos.url` points at that zip. They are not on PyPI.
+- The fork release `v0.2.1` still holds the xpcshell wheel and `ruyijs-runtime-macos-arm64.zip`. `runtime.json` `macos.url` points at that zip. Since 0.3.0, PyPI also publishes a `macosx_26_0_arm64` wheel with no xpcshell. A proxy stays available only in the donor build.
 
 ## Stays out of scope
 

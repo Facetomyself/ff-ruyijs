@@ -27,6 +27,8 @@ Windows 字体守卫在 `0a82adb` 上没有。快进到上游 `main` 之后，`d
 
 上游作者合并时没有跑 macOS 这一半。快进之后，这个检出在 `MACOSX_DEPLOYMENT_TARGET=26.0` 下对 SpiderMonkey 与浏览器 donor 重编，链接了 `web_geometry_font_face_mac`，并复测产品：`Context.eval('1+1')` 返回 2，`navigate('https://example.com/')` 达到状态 200，标题为 `Example Domain`。这个检出没有在上游 `main` 上重编 Windows。作者的 Windows 结果仍以那条评论为准：加守卫后的树用同一套编译和链接命令构建，C ABI、已安装 wheel 的冒烟、CreepJS（96 个小节）和一套 64 探针的表现与之前一致。
 
+本轮在 2026-11-01 为共享的 0.3.0 源码再次重编了 `dist/js`。`git fetch upstream main` 仍是 `6d45317`，并且已经是 `87416f3` 的祖先，所以本轮没有再合并。构建使用 `MACOSX_DEPLOYMENT_TARGET=26.0`，SpiderMonkey donor 为 `../firefox-159/obj-js-standalone`，浏览器 donor 为 `../firefox-159/obj-necko`。`LINUX_ONLY` 单元没有进入 macOS 链接：`openssl_backend.cpp`、`font_posix.cpp`、`svg_path_posix.cpp`、`image_codec_native.cpp`、`image_composition_posix.cpp`。`Context.eval('1+1')` 返回 2。`navigate('https://example.com/')` 达到状态 200，标题为 `Example Domain`。这一轮没有再跑 bootstrap，没有打 wheel，`runtime.json` 的 `macos.url` 仍是 fork `v0.2.1` 的压缩包。
+
 ## 文档已经对齐的两处
 
 `docs/macos.md` 和 `docs/macos.zh-CN.md` 里有两段文字和合并后的状态矛盾，写第一份缺口说明时已换掉。
@@ -50,7 +52,7 @@ Windows 字体守卫在 `0a82adb` 上没有。快进到上游 `main` 之后，`d
 
 - QUIC ClientHello 的个数在现有 `libnecko_quic` 和 Neqo 0.32.0 里，于 16 个分叉点上对齐。CRYPTO 重组之后，16 个版本打印 ok，失败数为 0。后面的字节拆到多个包里时，单独的第一个 Initial 包不是一份完整的 ClientHello。记录不要求逐字节相同。没有 JA3 分数。
 - 干净安装可以导入。直连 HTTPS 返回状态 200、版本码 20。本机 HTTP/3 的第一次响应是状态 200、版本码 11，第二次是状态 200、版本码 30。`libnecko_quic.dylib` 从打包后的 `dist/necko` 加载。
-- wheel 和 `ruyijs-runtime-macos-arm64.zip` 在 fork Release `v0.2.1` 上。`runtime.json` 的 `macos.url` 指向这份压缩包。它们不在 PyPI。
+- fork Release `v0.2.1` 仍挂着带 xpcshell 的 wheel 和 `ruyijs-runtime-macos-arm64.zip`。`runtime.json` 的 `macos.url` 指向这份压缩包。从 0.3.0 起，PyPI 另有一份不带 xpcshell 的 `macosx_26_0_arm64` wheel。代理仍只在 donor 构建里。
 
 ## 仍在范围之外
 

@@ -105,7 +105,7 @@ On Windows the same build copies only `oneshot.py`. If the Darwin venv is missin
 
 The shell binary is `dist/js`. Point examples at it with `RUYIJS_SHELL` set to that path, and put `python/` on `PYTHONPATH`. The client library is `libruyijs_client.dylib`.
 
-A local wheel is tagged `macosx_26_0_arm64`. It places the shell at `_runtime/dist/js` and copies the donor xpcshell closure to `_runtime/dist/necko`, including `libnecko_quic.dylib` when that library exists. The wheel also includes `necko/closed_route.py`, `necko/core_client.py`, and `necko_win`. The wheel and `ruyijs-runtime-macos-arm64.zip` are on the maintainer fork release, not on PyPI. Regenerate the archive with `python3.12 -B tools/macos_runtime.py <zip-path>`, then store the printed size and sha256 in the `runtime.json` `macos` object together with the release URL.
+A local wheel is tagged `macosx_26_0_arm64`. It places the shell at `_runtime/dist/js` and copies the donor xpcshell closure to `_runtime/dist/necko`, including `libnecko_quic.dylib` when that library exists. The wheel also includes `necko/closed_route.py`, `necko/core_client.py`, and `necko_win`. The PyPI wheel has no xpcshell. The fork `v0.2.1` zip remains `runtime.json` `macos.url`. The donor build is the one that includes xpcshell. Regenerate the archive with `python3.12 -B tools/macos_runtime.py <zip-path>`, then store the printed size and sha256 in the `runtime.json` `macos` object together with the release URL.
 
 ## How a request moves
 
@@ -175,7 +175,7 @@ Reviewed against upstream `a626670`. That range includes the 0.2.1 shell, the CS
 | iframe document load | Shared source. Necko ticks map through QueryPerformanceCounter | Same source. Ticks map through `steady_clock` milliseconds, as in `page_navigation.cpp`. One iframe document returned status 200 and `h2` |
 | WebCodecs, audio decode, WebGPU, customized built-ins, XML, form target | Same source | Interface only, or an explicit unimplemented error |
 | DataDome homepage | Server score | Server score. The example pass condition is unchanged |
-| Install | PyPI `win_amd64` wheel for 0.2.1 | `macosx_26_0_arm64` wheel and `ruyijs-runtime-macos-arm64.zip` are on the fork release `v0.2.1`. `runtime.json` `macos.url` points at that zip. They are not on PyPI |
+| Install | PyPI `win_amd64` wheel for 0.2.1 | The PyPI `macosx_26_0_arm64` wheel has no xpcshell. The fork `v0.2.1` zip remains `runtime.json` `macos.url`. The donor build is the one that includes xpcshell |
 | C ABI client | DLL beside the shell | `libruyijs_client.dylib` install name `@rpath/libruyijs_client.dylib`, rpath `@executable_path`. XUL, xpcshell, and NSS names stay as Firefox wrote them |
 
 `image_wic.h` still contains a POSIX stub. macOS decode goes through ImageIO in `image_codec.cpp` and `image_gif.cpp`.
@@ -189,7 +189,7 @@ The shell stays linked for `macosx_26_0_arm64`. Linux, Intel Macs, and macOS old
 3. C client install name is done. `otool -D` prints `@rpath/libruyijs_client.dylib`, and the rpath is `@executable_path`.
 4. Image pixels. Keep ImageIO. A fixture can record the GIF background difference. Change pixels only when ImageIO already exposes the matching disposal.
 5. Font aliases. `Osaka-Mono` to `Osaka` is the only Mac alias. Mac family selection stays the Core Text cascade. The upstream pref-lang, SimSun, and Arial lists stay on the Windows side of `font_collection.cpp`. The Windows cache separator stays the source escape `'\0'`, so the file stays text.
-6. Publish. `runtime.json` `macos.url` is the fork release zip for `v0.2.1`. The same release holds `ruyijs-0.2.1-py3-none-macosx_26_0_arm64.whl`. Neither file is on PyPI. A clean install imported. Direct HTTPS returned status 200 and version 20. A local HTTP/3 second request returned status 200 and version 30. `libnecko_quic.dylib` loaded from the packaged `dist/necko` directory. COLRv1, Linux, Intel Macs, and macOS older than 26 stay out.
+6. Publish. The PyPI wheel has no xpcshell. The fork `v0.2.1` zip remains `runtime.json` `macos.url`. The donor build is the one that includes xpcshell. The same release holds `ruyijs-0.2.1-py3-none-macosx_26_0_arm64.whl`. A clean install imported. Direct HTTPS returned status 200 and version 20. A local HTTP/3 second request returned status 200 and version 30. `libnecko_quic.dylib` loaded from the packaged `dist/necko` directory. COLRv1, Linux, Intel Macs, and macOS older than 26 stay out.
 
 ## What not to commit
 

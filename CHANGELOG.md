@@ -7,6 +7,7 @@ All notable changes to this project are documented here. The format follows
 
 ### Changed
 
+- `docs/macos-baseline.md`, `docs/macos.md`, `docs/macos-gaps.md`, and their Chinese pairs set the integration base to `6d45317` (`release: pin the 0.3.0 runtime`), record the third sync merge `94f3540` and the upstream `v0.3.0` Windows runtime URL, and state that PyPI's `macosx_26_0_arm64` wheel has no xpcshell while `runtime.json` `macos.url` remains the fork `v0.2.1` zip. This round rebuilt `dist/js` and smoked `1+1` plus `https://example.com/`.
 - `docs/macos-gaps.md` and `docs/macos-gaps.zh-CN.md` record the pushed fork tip (`e2fcba2`), the post-sync macOS rebuild, the `example.com` smoke after the Windows font guard landed by fast-forward, the Apple-header guard audit, the socket-process product flags, the fork-release zip size and sha256 check, and the third upstream sync of `6d45317` (0.3.0 / Linux) as `94f3540`.
 - `docs/macos-baseline.md`, `docs/macos-gaps.md`, and their Chinese pairs record the upstream syncs through `fd094ed` and then `6d45317`.
 
