@@ -7,14 +7,14 @@
 ff-ruyijs is a **headless Firefox engine for Python** — it embeds the real SpiderMonkey (Firefox 159) JavaScript engine and the Necko HTTP stack so Python code can execute any site's JavaScript, pass bot checks, and collect data without a browser window.
 
 - **Repository:** https://github.com/cutetailbud/ff-ruyijs
-- **License:** Source Available — modifications must be open-sourced when distributed; commercial use requires author authorization
+- **License:** AGPL-3.0-only, or a commercial license from the author for closed-source use (see COMMERCIAL-LICENSE.md)
 
 ## Key facts
 
 - **Language:** Python 3.10+ (user-facing), C++ (engine bindings), JavaScript (browser contexts)
-- **Platform:** Windows x64, and macOS arm64 as a source build
-- **License:** ff-ruyijs Source Available License v1.0
-- **Install:** `pip install ruyijs` on Windows. On macOS arm64, build `dist/js` from source. The donor layout and the empty surfaces are in `docs/macos.md`.
+- **Platform:** Windows x64, macOS arm64 and Linux x86_64
+- **License:** AGPL-3.0-only + commercial (dual license); Mozilla-derived code is MPL-2.0
+- **Install:** `pip install ruyijs` (PyPI wheels for Windows x64, macOS arm64 and Linux x86_64, built by `.github/workflows/wheels.yml` from the `firefox/` submodule). Platform notes are in `docs/macos.md` and `docs/linux.md`.
 - **Entry point:** `from ruyijs import Context`
 
 ## Repository layout
@@ -50,7 +50,7 @@ assets/                 README images and architecture diagrams
 - Each `Context` is an **isolated process** — no shared state between contexts.
 - Examples are run via `python -m ruyijs.examples <name>`.
 - All examples support `--proxy`, `--direct`, `--output`, `--help`.
-- The Windows wheel bundles a SHA256-pinned native runtime; that wheel needs no browser download. The macOS shell is `dist/js`, built against donor trees kept outside this repository. See `docs/macos.md`.
+- Every wheel bundles its native runtime, built from the official Firefox 159.0 source in the `firefox/` submodule; no browser download is needed. The macOS wheel has no xpcshell, so proxies are not available there (`docs/macos.md`).
 
 ## What NOT to do
 

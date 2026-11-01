@@ -1,4 +1,5 @@
 """Build a platform wheel containing the unchanged standalone runtime."""
+import os
 from pathlib import Path
 import platform
 import shutil
@@ -44,6 +45,19 @@ class BuildPython(build_py):
                     raise ValueError(f"Build directory contains another runtime version: {target}")
             else:
                 shutil.copytree(runtime, target)
+        elif tag.startswith("manylinux"):
+            # dist/js, libruyijs_client.so and the NSS/Neqo helper built by
+            # tools/build_linux.py and tools/build_necko_linux.py, made
+            # relocatable with every non-glibc library (tools/bundle_linux.py).
+            executable = project / "dist/js"
+            if not executable.is_file():
+                raise FileNotFoundError("Build the Linux runtime with tools/build_linux.py first")
+            with executable.open("rb") as stream:
+                header = stream.read(20)
+            if header[:6] != b"\x7fELF\x02\x01" or header[18:20] != b"\x3e\x00":
+                raise RuntimeError("dist/js is not a little-endian x86_64 ELF executable")
+            from bundle_linux import bundle
+            bundle(project, target)
         else:
             runtime = project / "dist"
             if not (runtime / "js").is_file() or not (runtime / "libmozglue.dylib").is_file():
@@ -90,12 +104,28 @@ def _install_darwin_helper(build_lib, project):
         build_lib / "necko/adapters.py": source / "necko_adapters.py",
         build_lib / "necko/__init__.py": source / "necko_pkg_init.py",
         build_lib / "necko/necko_fetch.js": source / "necko_fetch.js",
+        build_lib / "ruyijs_necko/webtransport_worker.py": source / "webtransport_worker.py",
+        build_lib / "ruyijs_necko/webtransport_wire.py": source / "webtransport_wire.py",
+        build_lib / "ruyijs_necko/webtransport_verify.py": source / "webtransport_verify.py",
+        build_lib / "ruyijs_necko/webtransport_session.py": source / "webtransport_session.py",
+        build_lib / "ruyijs_necko/webtransport_connection.py": source / "webtransport_connection.py",
+        build_lib / "necko/closed_route.py": source / "necko_closed_route.py",
+        build_lib / "necko/core_client.py": source / "necko_core_client.py",
     }
     for dest, src in mapping.items():
         if not src.is_file():
             raise FileNotFoundError(src)
         dest.parent.mkdir(parents=True, exist_ok=True)
         dest.write_bytes(src.read_bytes())
+    win_source = project / "native/necko_tls/necko_win"
+    if not win_source.is_dir():
+        raise FileNotFoundError(win_source)
+    for item in sorted(win_source.iterdir()):
+        if not item.is_file() or item.suffix == ".pyc":
+            continue
+        dest = build_lib / "necko_win" / item.name
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_bytes(item.read_bytes())
 
 
 def _platform_tag():
@@ -106,7 +136,12 @@ def _platform_tag():
         return "win_amd64"
     if sys.platform == "darwin" and machine in ("arm64", "aarch64"):
         return "macosx_26_0_arm64"
-    raise RuntimeError("ruyijs wheels are built for Windows x64 or macOS arm64")
+    if sys.platform.startswith("linux") and machine in ("x86_64", "amd64"):
+        # The bundle carries every library except glibc (tools/bundle_linux.py),
+        # so the floor is the glibc of the build host.
+        major, minor = os.confstr("CS_GNU_LIBC_VERSION").split()[1].split(".")[:2]
+        return f"manylinux_{major}_{minor}_x86_64"
+    raise RuntimeError("ruyijs wheels are built for Windows x64, macOS arm64 or Linux x86_64")
 
 
 class PlatformWheel(bdist_wheel):
