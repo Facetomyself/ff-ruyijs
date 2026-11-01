@@ -8,13 +8,13 @@
 
 ## 同步状态
 
-Windows 字体守卫在 `0a82adb` 上没有。快进到上游 `main` 之后，`d49bfd3`、`05b68fa` 和 `da1df2c` 都已进入。上游随后前进到 `fd094ed`（Firefox 159 的 CI wheel）。本检出把该尖端合并进本地 gaps 线，得到 `3aad54a`；之后的 gaps 文档可能叠在这次合并之上。凭据允许推送之前，GitHub 上 fork 的 `main`、`release/macos` 和 `tls/necko-core-arm64` 仍停在 `c69875b`。下面每一行尖端上的 `font_face_mac.cpp` 都已加守卫。
+Windows 字体守卫在 `0a82adb` 上没有。快进到上游 `main` 之后，`d49bfd3`、`05b68fa` 和 `da1df2c` 都已进入。上游随后经过 `fd094ed`（Firefox 159 的 CI wheel）前进到 `6d45317`（0.3.0 / Linux）。本检出先把 `fd094ed` 合并为 `3aad54a`，把该 gaps 线推成 `e2fcba2`，再把 `6d45317` 合并为 `94f3540`。下面每一行尖端上的 `font_face_mac.cpp` 都已加守卫。
 
 | 线 | 尖端 | `font_face_mac.cpp` 里的守卫 |
 | --- | --- | --- |
-| 上游 `cutetailbud/ff-ruyijs` 的 `main` | `fd094ed4d04f17a81c53e71c764b6788f3198183` | 有，提交 `d49bfd3` |
-| 合并之后的本地维护方线 | `3aad54a` 及其上的后续 gaps 文档 | 有 |
-| GitHub 上的维护方 fork 分支 | `c69875b`（在 `da1df2c` 上的文档） | 有 |
+| 上游 `cutetailbud/ff-ruyijs` 的 `main` | `6d4531792b3f71379c9a53182930668f80bbdadf` | 有，提交 `d49bfd3` |
+| 0.3.0 合并之后的本地维护方线 | `94f3540` 及其上的后续 gaps 文档 | 有 |
+| 第一次推送之后 GitHub 上的维护方 fork 分支 | `e2fcba2`（其上再叠 0.3.0 合并） | 有 |
 | 快进之前的历史尖端 | `0a82adb4e9c3ed1a046dde5953676c00442da59c` | 没有 |
 
 上游 `main` 已经通过合并 `0d42c60` 包含 `0a82adb`。仍停在 `0a82adb` 的分支不包含 `d49bfd3`、`05b68fa` 和 `da1df2c`。
@@ -39,10 +39,10 @@ Windows 字体守卫在 `0a82adb` 上没有。快进到上游 `main` 之后，`d
 
 ## 目标
 
-1. 只做同步。本地已完成：fork 已快进过 `da1df2c`，再把 `fd094ed` 合并进 gaps 线得到 `3aad54a`，两次同步都没有混入功能。`d49bfd3`、`05b68fa`、`da1df2c` 和 `fd094ed` 都是祖先。不使用 `reset --hard`，也不强推。凭据允许推送合并与后续 gaps 提交之前，GitHub 仍公布 `c69875b`。
+1. 只做同步。已完成：fork 已快进过 `da1df2c`，把 `fd094ed` 合并为 `3aad54a`，把该线推成 `e2fcba2`，再把上游 `6d45317`（0.3.0 / Linux）合并为 `94f3540`，同步提交里没有另加功能。`d49bfd3`、`05b68fa`、`da1df2c`、`fd094ed` 和 `6d45317` 都是祖先。不使用 `reset --hard`，也不强推。
 2. 之后的每次提交都守住平台守卫。本尖端已核对：`src/**/*.cpp` 里每一处 Apple 的 `CoreText` / `ImageIO` / `CoreGraphics` / `CoreFoundation` / `Security` 包含都在 Darwin 区域（`#ifndef _WIN32`，或 `#ifdef _WIN32` 的 `#else`）。十二个文件、十五处包含。新的产品 `.cpp` 若包含 Apple 头文件，审查前先包上守卫。
 3. socket process 保持关闭。已核对：`necko_fetch.js` 里两个 socket process 偏好为 false，`necko_client.py` 设置 `MOZ_DISABLE_SOCKET_PROCESS=1`，`src/` 与 `python/` 中没有 `MOZ_DISABLE_SOCKET_PROCESS_SANDBOX`。偏好打开时，这只 xpcshell 在 `GeckoChildProcessHost::FillMacSandboxInfo` 里以信号 11 退出，调用来自 `SocketProcessHost::FillMacSandboxInfo`。`plugin-container.app` 只存在于 donor 的 objdir，来自 `mach build ipc/app --allow-subdirectory-build`。它不是产品文件。直连 HTTP/3 继续走 `libnecko_quic`。
-4. macOS wheel 和压缩包继续放在 fork Release 上。已核对：`Facetomyself/ff-ruyijs` 的 `v0.2.1` 仍挂着两份附件；压缩包的大小和 sha256 与 `runtime.json` 的 `macos` 一致；Windows 的 `url` 仍指向 `cutetailbud`。只有新的压缩包 URL 已经存在时才改 `macos.url`。Windows 的 URL 保持不动。标签 `v0.2.1` 留在原地。
+4. macOS wheel 和压缩包继续放在 fork Release 上。已核对：`Facetomyself/ff-ruyijs` 的 `v0.2.1` 仍挂着两份附件；压缩包的大小和 sha256 与 `runtime.json` 的 `macos` 一致；Windows 的 `url` 经合并后指向上游 `cutetailbud` 的 `v0.3.0`。只有新的压缩包 URL 已经存在时才改 `macos.url`。在新的 macOS 压缩包发布之前，fork 标签 `v0.2.1` 留在原地。
 
 ## 已在 `0a82adb` 关闭
 
@@ -54,7 +54,7 @@ Windows 字体守卫在 `0a82adb` 上没有。快进到上游 `main` 之后，`d
 
 ## 仍在范围之外
 
-COLRv1、Linux、Intel Mac、低于 macOS 26 的系统、GIF 像素对齐、额外字体别名、`wire_fields.py`、DNS / connect / TLS 计时槽（保持 0）、把全部 60 个配置当页面打开、把公网 HTTP/3 正文复测当成必做项、WebGPU、音频解码、WebCodecs、XML、自定义内置元素、表单目标、第二条 QUIC 栈，以及 JA3。
+COLRv1、Intel Mac、低于 macOS 26 的系统、GIF 像素对齐、额外字体别名、`wire_fields.py`、DNS / connect / TLS 计时槽（保持 0）、把全部 60 个配置当页面打开、把公网 HTTP/3 正文复测当成必做项、WebGPU、音频解码、WebCodecs、XML、自定义内置元素、表单目标、第二条 QUIC 栈，以及 JA3。Linux 已随 0.3.0 合并进入上游 `main`；本维护方线不再单独加一份本地 Linux 构建。
 
 ## 仍然成立的边界
 
@@ -62,7 +62,7 @@ COLRv1、Linux、Intel Mac、低于 macOS 26 的系统、GIF 像素对齐、额�
 
 缺少 `d49bfd3` 的分支在 Windows 上重编时，会停在 `<CoreText/CoreText.h>`。
 
-打开的 PR #5（`linux-native`）是另一条线。它不是这次 macOS 同步。
+上游 Linux（`docs/linux.md`，原先 PR #5）已随 `6d45317` 到达。它不是还开着的 macOS 缺口。
 
 ## 本说明不做什么
 
