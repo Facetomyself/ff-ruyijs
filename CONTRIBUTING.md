@@ -24,6 +24,11 @@ relevant [owner record](./docs/owners) first. The essentials:
   example via `tools/firefox_parity`) and update [docs/DEVIATIONS.md](./docs/DEVIATIONS.md) when
   a difference remains.
 
+- **Cut from the recorded line.** Read [docs/BRANCHES.md](./docs/BRANCHES.md)
+  ([中文](./docs/BRANCHES.zh-CN.md)) before choosing a base. On this fork, macOS fixes land on
+  `release/macos` first and `main` fast-forwards to the same commit. An upstream update is merged
+  on a branch cut from `release/macos`, reviewed, and merged back.
+
 ## Pull request checklist
 
 - [ ] The owner record (bounded context, state source, factory, installer, tests) is updated for API changes
@@ -31,6 +36,8 @@ relevant [owner record](./docs/owners) first. The essentials:
 - [ ] Behaviour is checked through both Python and the C ABI
 - [ ] Tests cover the owner, descriptors/prototypes, invalid receivers and realm behaviour, not just "it exists"
 - [ ] The diff contains no build outputs, captures, logs, credentials or proxy details
+
+- [ ] If this pull request creates, retargets, merges, or drops a shared branch, [docs/BRANCHES.md](./docs/BRANCHES.md) and [docs/BRANCHES.zh-CN.md](./docs/BRANCHES.zh-CN.md) match the new tips and roles, and that same update is pushed to every `origin` branch
 
 ## Reporting issues
 
