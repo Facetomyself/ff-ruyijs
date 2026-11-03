@@ -31,6 +31,8 @@ The upstream author commented on PR #4 that the Windows build stopped at `<CoreT
 
 ## Moving the fork
 
+The current procedure is [branching.md](branching.md): merge upstream on a `sync/<sha>` branch cut from this fork's `main`, check the affected platforms, then merge to `main`. The paragraphs below are the 2026-11-01 record of how the fork moved off `0a82adb`. They are not the procedure for the next sync.
+
 The next sync brings upstream `main` into the fork and contains no feature change.
 
 `0a82adb` is an ancestor of the `main` checked above. The first sync fast-forwarded the fork branches through `da1df2c`, which brought in `d49bfd3`, `05b68fa`, and `da1df2c`. The second sync merges `fd094ed` into the gaps line that already sat on that tip. The third sync merges `6d45317` as `94f3540`.

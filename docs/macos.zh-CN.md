@@ -200,7 +200,7 @@ DataDome 示例的首页结果是服务端评分，不是缺少的 Mac 绑定。
 
 ## 维护方自己的 fork
 
-后续 macOS 工作以上游 `cutetailbud/ff-ruyijs` 的 `main` 为底。仍停在 `0a82adb` 的分支还没有 Windows 守卫。这个尖端已经快进到那个 `main`。下一次同步、提交和发布的规则写在 [macos-baseline.zh-CN.md](macos-baseline.zh-CN.md)。当前缺口和目标写在 [macos-gaps.zh-CN.md](macos-gaps.zh-CN.md)。各分支的用途和当前提交见 [BRANCHES.zh-CN.md](BRANCHES.zh-CN.md)。
+分支规则在 [branching.zh-CN.md](branching.zh-CN.md)。`main` 是主干。macOS 改动在进入主干之前，由维护者在 Mac 上验收。donor 底线和不要提交的东西仍在 [macos-baseline.zh-CN.md](macos-baseline.zh-CN.md)。当前缺口在 [macos-gaps.zh-CN.md](macos-gaps.zh-CN.md)。
 
 ## 闭源路线
 
