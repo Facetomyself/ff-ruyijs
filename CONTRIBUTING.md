@@ -24,10 +24,11 @@ relevant [owner record](./docs/owners) first. The essentials:
   example via `tools/firefox_parity`) and update [docs/DEVIATIONS.md](./docs/DEVIATIONS.md) when
   a difference remains.
 
-- **Cut from the recorded line.** Read [docs/BRANCHES.md](./docs/BRANCHES.md)
-  ([中文](./docs/BRANCHES.zh-CN.md)) before choosing a base. On this fork, macOS fixes land on
-  `release/macos` first and `main` fast-forwards to the same commit. An upstream update is merged
-  on a branch cut from `release/macos`, reviewed, and merged back.
+- **Cut from `main`.** Read [docs/branching.md](./docs/branching.md)
+  ([中文](./docs/branching.zh-CN.md)) before choosing a base. `main` is the trunk for Linux,
+  macOS, and Windows. An upstream update is merged on a `sync/<sha>` branch cut from `main`,
+  checked per platform, and merged back. `release/macos` is a fast-forward pointer of `main`,
+  not a second place to commit.
 
 ## Pull request checklist
 
@@ -37,7 +38,7 @@ relevant [owner record](./docs/owners) first. The essentials:
 - [ ] Tests cover the owner, descriptors/prototypes, invalid receivers and realm behaviour, not just "it exists"
 - [ ] The diff contains no build outputs, captures, logs, credentials or proxy details
 
-- [ ] If this pull request creates, retargets, merges, or drops a shared branch, [docs/BRANCHES.md](./docs/BRANCHES.md) and [docs/BRANCHES.zh-CN.md](./docs/BRANCHES.zh-CN.md) match the new tips and roles, and that same update is pushed to every `origin` branch
+- [ ] If this pull request changes the role of a long-lived branch, [docs/branching.md](./docs/branching.md) and [docs/branching.zh-CN.md](./docs/branching.zh-CN.md) match. A fast-forward of `release/macos` or `tls/necko-core-arm64` does not need a docs commit, and the change is not copied onto every other branch
 
 ## Reporting issues
 

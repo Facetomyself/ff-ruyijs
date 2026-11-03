@@ -31,6 +31,8 @@
 
 ## 移动 fork
 
+当前流程在 [branching.zh-CN.md](branching.zh-CN.md)：从本 fork 的 `main` 拉出 `sync/<sha>`，在那上面合并上游，核过受影响的平台，再合并回 `main`。下面几段是 2026-11-01 把 fork 从 `0a82adb` 移开的记录，不是下一次同步的流程。
+
 下一次同步把上游 `main` 带进 fork，这次同步本身不带功能改动。
 
 上面核对的 `main` 仍以 `0a82adb` 为祖先。第一次同步把 fork 分支快进过 `da1df2c`，带入 `d49bfd3`、`05b68fa` 和 `da1df2c`。第二次同步把 `fd094ed` 合并进已经停在那个尖端上的 gaps 线。第三次同步把 `6d45317` 合并为 `94f3540`。

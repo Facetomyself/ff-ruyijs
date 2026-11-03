@@ -265,6 +265,7 @@ python -m ruyijs.examples --shared akamai datadome creepjs   # 多个示例同�
 | **`JSError` / `console_log` / `net_log`** | 异常、console 与网络记录 |
 | **`JSObject` / `JSFunction` / `get_runtime_path`** | 存活 JS 句柄、内置运行时路径 |
 | **`Engine` / `engine.context` / `use_engine`** | 多个独立 Context 作为同一进程的会话 |
+| **分支** | [docs/branching.zh-CN.md](docs/branching.zh-CN.md) |
 
 ## 📏 使用范围与限制
 

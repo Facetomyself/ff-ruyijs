@@ -200,7 +200,7 @@ Include the ruyijs commit, the macOS version, the Xcode version, the Python vers
 
 ## Maintainer fork
 
-Further macOS work is based on upstream `cutetailbud/ff-ruyijs` `main`. A branch still at `0a82adb` does not contain the Windows guard. This tip fast-forwarded to that `main`. Rules for the next sync, commits, and releases are in [macos-baseline.md](macos-baseline.md). Current gaps and goals are in [macos-gaps.md](macos-gaps.md). The map of every fork and upstream branch is [BRANCHES.md](BRANCHES.md).
+Branch rules are in [branching.md](branching.md). `main` is the trunk. macOS is verified on the maintainer's Mac before a change lands there. The donor floor and what not to commit stay in [macos-baseline.md](macos-baseline.md). Current gaps are in [macos-gaps.md](macos-gaps.md).
 
 ## Closed route
 

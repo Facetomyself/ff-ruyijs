@@ -265,6 +265,7 @@ Every example supports `--direct` (direct connection) and `--proxy http://127.0.
 | **`JSError` / `console_log` / `net_log`** | Errors as exceptions, console and network records |
 | **`JSObject` / `JSFunction` / `get_runtime_path`** | Live JS handles, bundled-runtime path |
 | **`Engine` / `engine.context` / `use_engine`** | Many independent Contexts as sessions of one process |
+| **Branches** | [docs/branching.md](docs/branching.md) |
 
 ## 📏 Scope & limitations
 
