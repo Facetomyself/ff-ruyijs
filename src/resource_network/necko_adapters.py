@@ -7,8 +7,8 @@ direct request uses necko_quic and the linked Neqo client. A proxy, and
 any other non-HTTPS URL, keeps the donor xpcshell. A request the library
 cannot represent falls back for that request only. Certificate
 verification failures stay on the library path. This process does not
-store cookies, does not follow redirects, and does not turn the socket
-process on.
+store cookies or turn the socket process on. The library route returns a
+3xx response; the xpcshell fallback follows up to 20 redirects.
 """
 
 import os
