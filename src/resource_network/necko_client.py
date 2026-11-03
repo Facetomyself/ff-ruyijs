@@ -5,10 +5,42 @@ import os
 import struct
 import subprocess
 from pathlib import Path
+from urllib.parse import urlsplit
 
 READY = b"RDY1"
 TEXT_LIMIT = 65536
 BODY_LIMIT = 8 * 1024 * 1024
+
+
+def proxy_endpoint():
+    """Return ``(host, port)`` for ``RUYIJS_HTTP_PROXY``, or None when unset.
+
+    An ``https`` proxy URL only selects the default port. It does not open TLS
+    to the proxy. The same checks as ``configureProxy()`` in ``necko_fetch.js``.
+    ``ruyijs_necko/oneshot.py`` keeps its own copy of them: it also runs in the
+    Windows and Linux helpers, which have no ``necko.client``.
+    """
+    proxy = os.environ.get("RUYIJS_HTTP_PROXY", "")
+    if not proxy:
+        return None
+    address = urlsplit(proxy)
+    if (len(proxy) > 65536 or address.scheme not in ("http", "https") or
+            not address.hostname or address.path not in ("", "/") or
+            address.query or address.fragment or any(c in proxy for c in "\r\n\x00")):
+        raise ValueError("Invalid HTTP proxy configuration")
+    port = address.port
+    if port is None:
+        port = 443 if address.scheme == "https" else 80
+    return address.hostname, port
+
+
+def xpcshell_available() -> bool:
+    """True when the donor or packaged xpcshell binary and script exist."""
+    try:
+        binary, script = _donor_paths()
+    except NeckoError:
+        return False
+    return binary.is_file() and script.is_file()
 
 
 def _packaged_xpcshell():
@@ -46,7 +78,17 @@ def _donor_paths():
         if packaged is not None:
             binary = packaged
         elif repo is not None:
-            binary = repo.parent / "firefox-159" / "obj-necko" / "dist" / "bin" / "xpcshell"
+            candidates = [
+                repo.parent / "firefox-src" / "firefox-159.0" / "obj-necko" / "dist" / "bin" / "xpcshell",
+                repo.parent / "firefox-159" / "obj-necko" / "dist" / "bin" / "xpcshell",
+                repo.parent / "firefox-159.0" / "obj-necko" / "dist" / "bin" / "xpcshell",
+            ]
+            for candidate in candidates:
+                if candidate.is_file():
+                    binary = candidate
+                    break
+            else:
+                binary = repo.parent / "firefox-159" / "obj-necko" / "dist" / "bin" / "xpcshell"
         else:
             raise NeckoError("Necko donor xpcshell was not found")
     return binary, script
@@ -74,7 +116,7 @@ class _Raw:
 class NeckoResponse:
     def __init__(self, status: int, payload: bytes, version: int, headers: list[tuple[str, str]]):
         self.status_code = status
-        self.headers = {}
+        self.headers = {k: v for k, v in headers}
         self.raw = _Raw(payload, version, headers)
 
     def close(self) -> None:
