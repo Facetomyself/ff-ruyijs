@@ -8,15 +8,15 @@
 原生的 Firefox JavaScript 引擎与网络栈，没有窗口、没有渲染器 ——<br>
 专为网页抓取、JS 逆向、数据采集与绕过人机验证而生。
 
-[![PyPI](https://img.shields.io/pypi/v/ruyijs?label=pypi&color=111111&logo=pypi&logoColor=white)](https://pypi.org/project/ruyijs/) [![Python](https://img.shields.io/badge/Python-%E2%89%A53.10-111111?logo=python&logoColor=white)](https://pypi.org/project/ruyijs/) [![License](https://img.shields.io/badge/license-AGPL--3.0%20%2B%20商业授权-111111)](LICENSE) [![Windows](https://img.shields.io/badge/Windows%20x64-0078D4?logo=windows&logoColor=white)](https://pypi.org/project/ruyijs/) [![macOS](https://img.shields.io/badge/macOS%20arm64-000000?logo=apple&logoColor=white)](https://pypi.org/project/ruyijs/) [![Linux](https://img.shields.io/badge/Linux%20x86__64-FCC624?logo=linux&logoColor=black)](https://pypi.org/project/ruyijs/) [![LinuxDO](https://img.shields.io/badge/LinuxDO-社区-FFB003?logo=discourse&logoColor=white)](https://linux.do/t/topic/3078486)
+[![PyPI](https://img.shields.io/pypi/v/ruyijs?label=pypi&color=111111&logo=pypi&logoColor=white)](https://pypi.org/project/ruyijs/) [![下载量](https://img.shields.io/pepy/dt/ruyijs?label=下载量&color=111111&logo=pypi&logoColor=white)](https://pepy.tech/projects/ruyijs) [![Python](https://img.shields.io/badge/Python-%E2%89%A53.10-111111?logo=python&logoColor=white)](https://pypi.org/project/ruyijs/) [![License](https://img.shields.io/badge/license-AGPL--3.0%20%2B%20商业授权-111111)](LICENSE) [![Windows](https://img.shields.io/badge/Windows%20x64-0078D4?logo=windows&logoColor=white)](https://pypi.org/project/ruyijs/) [![macOS](https://img.shields.io/badge/macOS%20arm64-000000?logo=apple&logoColor=white)](https://pypi.org/project/ruyijs/) [![Linux](https://img.shields.io/badge/Linux%20x86__64-FCC624?logo=linux&logoColor=black)](https://pypi.org/project/ruyijs/) [![LinuxDO](https://img.shields.io/badge/LinuxDO-社区-FFB003?logo=discourse&logoColor=white)](https://linux.do/t/topic/3078486)
 
 <sub>赞助商</sub>
 
-<a href="https://www.fastaitoken.com"><img src="assets/sponsor-fastaitoken.png" height="42" alt="FastAIToken"></a>
+<a href="https://www.fastaitoken.com"><img src="assets/sponsor-fastaitoken.png" height="42" alt="FastAIToken"></a>&nbsp;&nbsp;&nbsp;<a href="https://www.fastaitoken.com" title="Claude"><img src="assets/models/claude.svg" width="42" height="42" alt="Claude"></a>&nbsp;&nbsp;<a href="https://www.fastaitoken.com" title="GPT"><img src="assets/models/gpt.svg" width="42" height="42" alt="GPT"></a>&nbsp;&nbsp;<a href="https://www.fastaitoken.com" title="Grok"><img src="assets/models/grok.svg" width="42" height="42" alt="Grok"></a>&nbsp;&nbsp;<a href="https://www.fastaitoken.com" title="DeepSeek"><img src="assets/models/deepseek.svg" width="42" height="42" alt="DeepSeek"></a>&nbsp;&nbsp;<a href="https://www.fastaitoken.com" title="GLM"><img src="assets/models/glm.svg" width="42" height="42" alt="GLM"></a>
 
 <sub>贡献者</sub>
 
-<a href="https://github.com/Facetomyself" title="Facetomyself · #4 macOS arm64 外壳、#6 QUIC 配置"><img src="assets/contributors/Facetomyself.png" width="48" height="48" alt="Facetomyself"></a>&nbsp;&nbsp;<a href="https://github.com/Starktomy" title="Starktomy · #5 Linux 运行时"><img src="assets/contributors/Starktomy.png" width="48" height="48" alt="Starktomy"></a>
+<a href="https://github.com/Facetomyself" title="Facetomyself · #4 macOS arm64 外壳、#6 QUIC 配置、#7 macOS 代理、#9 macOS Necko 适配器"><img src="assets/contributors/Facetomyself.png" width="48" height="48" alt="Facetomyself"></a>&nbsp;&nbsp;<a href="https://github.com/Starktomy" title="Starktomy · #5 Linux 运行时"><img src="assets/contributors/Starktomy.png" width="48" height="48" alt="Starktomy"></a>&nbsp;&nbsp;<a href="https://github.com/isesword" title="isesword · #8 macOS Core Text 排版与 Firefox 对齐"><img src="assets/contributors/isesword.png" width="48" height="48" alt="isesword"></a>&nbsp;&nbsp;<a href="https://github.com/sbbbsbbb" title="sbbbsbbb · #10 macOS TLS 与 HTTP/2"><img src="assets/contributors/sbbbsbbb.png" width="48" height="48" alt="sbbbsbbb"></a>
 
 **[安装](#-安装)** &nbsp;·&nbsp; **[功能](#-功能)** &nbsp;·&nbsp; **[攻克的验证系统](#-攻克的验证系统)** &nbsp;·&nbsp; **[示例](#-运行示例)** &nbsp;·&nbsp; **[FAQ](#-常见问题)** &nbsp;·&nbsp; **[联系](#-联系方式)** &nbsp;·&nbsp; **[LinuxDO](https://linux.do/t/topic/3078486)** &nbsp;·&nbsp; [English](README.md) · **简体中文**
 
@@ -56,7 +56,7 @@ python -m pip install ruyijs
 
 Windows 的 wheel 内置 SHA256 锁定的 SpiderMonkey + Necko 运行时（约 42 MB），安装后即可离线运行，无需下载浏览器，无外部依赖。
 
-**macOS arm64：** `macosx_26_0_arm64` wheel 通过 `libnecko_core.dylib` 和 `libnecko_quic.dylib` 直连 HTTPS 加载页面，二者链接同一份 Firefox 源码编出的 NSS。它不带 xpcshell，所以 macOS 上暂时不能用 `Context(proxy=...)`。Necko helper 运行在安装 ruyijs 的那个 Python 上，它需要的包是 macOS wheel 的依赖。细节和尚未完成的部分见 [docs/macos.zh-CN.md](docs/macos.zh-CN.md)。
+**macOS arm64：** `macosx_26_0_arm64` wheel 通过 `libnecko_core.dylib` 和 `libnecko_quic.dylib` 直连 HTTPS 加载页面，二者链接同一份 Firefox 源码编出的 NSS。它不带 xpcshell。没有 xpcshell 时，`Context(proxy=...)` 用 HTTP CONNECT 进入 `libnecko_core`。Necko helper 运行在安装 ruyijs 的那个 Python 上，它需要的包是 macOS wheel 的依赖。细节和尚未完成的部分见 [docs/macos.zh-CN.md](docs/macos.zh-CN.md)。
 
 **Linux x86_64：** `manylinux_2_39_x86_64` wheel 是原生 ELF 构建，由 [@Starktomy](https://github.com/Starktomy) 在 #5 贡献。文字用 fontconfig、FreeType 和 HarfBuzz 渲染机器上已安装的字体，WebCrypto 用 OpenSSL 3，Necko helper（NSS 3.131，HTTP/3 用 Neqo）自带 Python。见 [docs/linux.zh-CN.md](docs/linux.zh-CN.md)。
 
@@ -68,7 +68,7 @@ python -m pip install --upgrade ruyijs
 验证安装：
 ```python
 import ruyijs
-print(ruyijs.__version__)   # 0.3.0
+print(ruyijs.__version__)   # 0.3.3
 ```
 
 ### 从源码构建
@@ -155,7 +155,7 @@ with Context() as context:
 
 ### 基于 Necko 的原生网络
 
-页面内 `fetch` 与 XHR 走真实 HTTP/1.1、2、3，并通过按上下文隔离的代理。用 `put_resource()` 自行提供响应即可离线复跑整条已捕获的流程。用 `net_log()` 查看每一次请求。macOS 上页面走直连 HTTPS，暂时不能用代理（`docs/macos.zh-CN.md`）。
+页面内 `fetch` 与 XHR 走真实 HTTP/1.1、2、3，并通过按上下文隔离的代理。用 `put_resource()` 自行提供响应即可离线复跑整条已捕获的流程。用 `net_log()` 查看每一次请求。macOS 上页面走直连 HTTPS。有 xpcshell 时代理仍走它；没有时走 HTTP CONNECT（`docs/macos.zh-CN.md`）。
 
 ### 原生 TLS 指纹 —— 自由切换 Firefox 100 – 159
 
@@ -185,6 +185,20 @@ Canvas 2D 使用 Firefox 官方的 **Skia**（Firefox 159 正式版的 `gfx/skia
 with Context() as context:
     context.expose(lambda a, b: a + b, "add")
     print(context.eval("add(20, 22)"))  # 42
+```
+
+### 多个独立会话共用一个进程
+
+`Context` 会启动自己的进程；`Engine` 则把多个 Context 作为同一进程中的会话并行运行，每个会话有自己的线程、堆、页面、时钟、Cookie、存储、代理和 TLS 配置。`prewarm` 和 `network=` 可以精简占 Context 大部分内存的 Necko 辅助进程：实测四个会话 5 个进程、221 MiB，四个 Context 为 12 个进程、378 MiB；四个会话共用一个 network 时为 3 个进程、151 MiB（[docs/engine.zh-CN.md](docs/engine.zh-CN.md)）。
+
+```python
+from ruyijs import Context, Engine, use_engine
+
+with Engine() as engine:
+    a = engine.context(proxy="http://127.0.0.1:7890")
+    b = engine.context(tls="120")
+    with use_engine(engine):
+        c = Context()          # 自己创建 Context 的代码同样加入该引擎
 ```
 
 ### 确定性时钟
@@ -235,6 +249,7 @@ python -m ruyijs.examples                      # 列出全部示例及其安装�
 python -m ruyijs.examples akamai               # Akamai Bot Manager 3.x
 python -m ruyijs.examples datadome             # DataDome interstitial device-check
 python -m ruyijs.examples creepjs              # CreepJS 指纹审计
+python -m ruyijs.examples --shared akamai datadome creepjs   # 多个示例同时运行，共用一个引擎
 ```
 
 示例均支持 `--direct`（直连）和 `--proxy http://127.0.0.1:7890`，在名称后加 `--help` 查看全部参数，`--output result.json` 可保存结果。各示例目录内附 README。
@@ -249,6 +264,7 @@ python -m ruyijs.examples creepjs              # CreepJS 指纹审计
 | **`configure_clock` / `advance` / `tick`** | 逻辑时钟 vs 系统时钟，推进事件循环 |
 | **`JSError` / `console_log` / `net_log`** | 异常、console 与网络记录 |
 | **`JSObject` / `JSFunction` / `get_runtime_path`** | 存活 JS 句柄、内置运行时路径 |
+| **`Engine` / `engine.context` / `use_engine`** | 多个独立 Context 作为同一进程的会话 |
 
 ## 📏 使用范围与限制
 
@@ -267,7 +283,7 @@ ruyiJS 在 **Windows x64**、**macOS arm64** 和 **Linux x86_64** 上提供 Java
 <details>
 <summary><b>支持 macOS 或 Linux 吗？</b></summary>
 
-支持。PyPI 上有 `macosx_26_0_arm64` wheel（macOS 26 及以上；暂不支持代理）和 `manylinux_2_39_x86_64` wheel（glibc 2.39 及以上）。见 [docs/macos.zh-CN.md](docs/macos.zh-CN.md) 和 [docs/linux.zh-CN.md](docs/linux.zh-CN.md)。
+支持。PyPI 上有 `macosx_26_0_arm64` wheel（macOS 26 及以上）和 `manylinux_2_39_x86_64` wheel（glibc 2.39 及以上）。macOS wheel 不带 xpcshell；从 0.3.1 起，`Context(proxy=...)` 在那里走 HTTP CONNECT 隧道。见 [docs/macos.zh-CN.md](docs/macos.zh-CN.md) 和 [docs/linux.zh-CN.md](docs/linux.zh-CN.md)。
 
 JS 引擎是 Mozilla 官方的 **SpiderMonkey**，网络库是 Mozilla 官方的 **Necko**。两者都从官方 Firefox 源码编译，源码以 `firefox/` 子模块引用。
 </details>

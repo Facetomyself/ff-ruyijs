@@ -9,8 +9,9 @@
 #   ci/linux/build.sh necko    NSS/NSPR, libnecko_core, Neqo and the helper
 #                              (tools/build_necko_linux.py --http3; Python 3.14)
 #   ci/linux/build.sh wheel    the manylinux wheel                -> wheelhouse/
-#   ci/linux/build.sh test     installs the wheel in a fresh venv; ci/smoke_test.py
-#                              and, when present, ci/network_smoke.py
+#   ci/linux/build.sh test     installs the wheel in a fresh venv; ci/smoke_test.py,
+#                              ci/atob_check.py, ci/network_smoke.py, ci/proxy_smoke.py,
+#                              ci/hello_check.py and ci/engine_check.py
 set -euo pipefail
 step="${1:?usage: build.sh deps|donor|shell|necko|wheel|test}"
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -79,11 +80,19 @@ case "$step" in
     "${clean[@]}" "$runtime/vendor/necko-derived/python/bin/python3" -c \
       "import sys, ssl, necko, ruyijs_necko; print('helper', sys.version.split()[0], ssl.OPENSSL_VERSION)"
     "${clean[@]}" "$venv/bin/python" "$root/ci/smoke_test.py"
-    # One real page load through the bundled Necko helper (ci/network_smoke.py
-    # on main since fd094ed).
-    if [ -f "$root/ci/network_smoke.py" ]; then
-      "${clean[@]}" "$venv/bin/python" "$root/ci/network_smoke.py"
-    fi ;;
+    # The Necko helper starts from bytecode and carries no unusable modules.
+    "${clean[@]}" "$venv/bin/python" "$root/ci/helper_check.py"
+    # Geometry after a mutation equals a fresh layout of the mutated page.
+    "${clean[@]}" "$venv/bin/python" "$root/ci/layout_check.py"
+    "${clean[@]}" "$venv/bin/python" "$root/ci/atob_check.py"
+    # One real page load through the bundled Necko helper, direct and through
+    # a local CONNECT proxy.
+    "${clean[@]}" "$venv/bin/python" "$root/ci/network_smoke.py"
+    "${clean[@]}" "$venv/bin/python" "$root/ci/proxy_smoke.py"
+    # The ClientHello must be Firefox 159's (ci/firefox159-hello.json).
+    "${clean[@]}" "$venv/bin/python" "$root/ci/hello_check.py"
+    # Several Contexts as sessions of one shared engine process.
+    "${clean[@]}" "$venv/bin/python" "$root/ci/engine_check.py" --network ;;
   *)
     echo "unknown step: $step" >&2; exit 1 ;;
 esac

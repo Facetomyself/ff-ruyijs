@@ -8,15 +8,15 @@
 The authentic Firefox JavaScript engine and networking stack, with no window and no renderer —<br>
 made for web scraping, JS reverse engineering, data collection, and getting past bot checks.
 
-[![PyPI](https://img.shields.io/pypi/v/ruyijs?label=pypi&color=111111&logo=pypi&logoColor=white)](https://pypi.org/project/ruyijs/) [![Python](https://img.shields.io/badge/Python-%E2%89%A53.10-111111?logo=python&logoColor=white)](https://pypi.org/project/ruyijs/) [![License](https://img.shields.io/badge/license-AGPL--3.0%20%2B%20commercial-111111)](LICENSE) [![Windows](https://img.shields.io/badge/Windows%20x64-0078D4?logo=windows&logoColor=white)](https://pypi.org/project/ruyijs/) [![macOS](https://img.shields.io/badge/macOS%20arm64-000000?logo=apple&logoColor=white)](https://pypi.org/project/ruyijs/) [![Linux](https://img.shields.io/badge/Linux%20x86__64-FCC624?logo=linux&logoColor=black)](https://pypi.org/project/ruyijs/) [![LinuxDO](https://img.shields.io/badge/LinuxDO-community-FFB003?logo=discourse&logoColor=white)](https://linux.do/t/topic/3078486)
+[![PyPI](https://img.shields.io/pypi/v/ruyijs?label=pypi&color=111111&logo=pypi&logoColor=white)](https://pypi.org/project/ruyijs/) [![Downloads](https://img.shields.io/pepy/dt/ruyijs?label=downloads&color=111111&logo=pypi&logoColor=white)](https://pepy.tech/projects/ruyijs) [![Python](https://img.shields.io/badge/Python-%E2%89%A53.10-111111?logo=python&logoColor=white)](https://pypi.org/project/ruyijs/) [![License](https://img.shields.io/badge/license-AGPL--3.0%20%2B%20commercial-111111)](LICENSE) [![Windows](https://img.shields.io/badge/Windows%20x64-0078D4?logo=windows&logoColor=white)](https://pypi.org/project/ruyijs/) [![macOS](https://img.shields.io/badge/macOS%20arm64-000000?logo=apple&logoColor=white)](https://pypi.org/project/ruyijs/) [![Linux](https://img.shields.io/badge/Linux%20x86__64-FCC624?logo=linux&logoColor=black)](https://pypi.org/project/ruyijs/) [![LinuxDO](https://img.shields.io/badge/LinuxDO-community-FFB003?logo=discourse&logoColor=white)](https://linux.do/t/topic/3078486)
 
 <sub>Sponsored by</sub>
 
-<a href="https://www.fastaitoken.com"><img src="assets/sponsor-fastaitoken.png" height="42" alt="FastAIToken"></a>
+<a href="https://www.fastaitoken.com"><img src="assets/sponsor-fastaitoken.png" height="42" alt="FastAIToken"></a>&nbsp;&nbsp;&nbsp;<a href="https://www.fastaitoken.com" title="Claude"><img src="assets/models/claude.svg" width="42" height="42" alt="Claude"></a>&nbsp;&nbsp;<a href="https://www.fastaitoken.com" title="GPT"><img src="assets/models/gpt.svg" width="42" height="42" alt="GPT"></a>&nbsp;&nbsp;<a href="https://www.fastaitoken.com" title="Grok"><img src="assets/models/grok.svg" width="42" height="42" alt="Grok"></a>&nbsp;&nbsp;<a href="https://www.fastaitoken.com" title="DeepSeek"><img src="assets/models/deepseek.svg" width="42" height="42" alt="DeepSeek"></a>&nbsp;&nbsp;<a href="https://www.fastaitoken.com" title="GLM"><img src="assets/models/glm.svg" width="42" height="42" alt="GLM"></a>
 
 <sub>Contributors</sub>
 
-<a href="https://github.com/Facetomyself" title="Facetomyself · #4 macOS arm64 shell, #6 QUIC profiles"><img src="assets/contributors/Facetomyself.png" width="48" height="48" alt="Facetomyself"></a>&nbsp;&nbsp;<a href="https://github.com/Starktomy" title="Starktomy · #5 Linux runtime"><img src="assets/contributors/Starktomy.png" width="48" height="48" alt="Starktomy"></a>
+<a href="https://github.com/Facetomyself" title="Facetomyself · #4 macOS arm64 shell, #6 QUIC profiles, #7 macOS proxy, #9 macOS Necko adapter"><img src="assets/contributors/Facetomyself.png" width="48" height="48" alt="Facetomyself"></a>&nbsp;&nbsp;<a href="https://github.com/Starktomy" title="Starktomy · #5 Linux runtime"><img src="assets/contributors/Starktomy.png" width="48" height="48" alt="Starktomy"></a>&nbsp;&nbsp;<a href="https://github.com/isesword" title="isesword · #8 macOS Core Text shaping and Firefox parity"><img src="assets/contributors/isesword.png" width="48" height="48" alt="isesword"></a>&nbsp;&nbsp;<a href="https://github.com/sbbbsbbb" title="sbbbsbbb · #10 macOS TLS and HTTP/2"><img src="assets/contributors/sbbbsbbb.png" width="48" height="48" alt="sbbbsbbb"></a>
 
 **[Install](#-installation)** &nbsp;·&nbsp; **[Features](#-features)** &nbsp;·&nbsp; **[Verification systems](#-verification-systems-it-defeats)** &nbsp;·&nbsp; **[Examples](#-examples)** &nbsp;·&nbsp; **[FAQ](#-faq--troubleshooting)** &nbsp;·&nbsp; **[Contact](#-contact)** &nbsp;·&nbsp; **[LinuxDO](https://linux.do/t/topic/3078486)** &nbsp;·&nbsp; **English** · [简体中文](README.zh-CN.md)
 
@@ -56,7 +56,7 @@ python -m pip install ruyijs
 
 The Windows wheel ships the SHA256-pinned SpiderMonkey + Necko runtime (~42 MB). Local scripts run offline right after install — no browser download, no external dependencies.
 
-**macOS arm64:** the `macosx_26_0_arm64` wheel loads pages over direct HTTPS through `libnecko_core.dylib` and `libnecko_quic.dylib`, linked against the NSS of the same Firefox source. It has no xpcshell, so `Context(proxy=...)` is not available on macOS yet. The Necko helper runs on the Python that installed ruyijs; its packages are dependencies of the macOS wheel. Details and the remaining gaps are in [docs/macos.md](docs/macos.md).
+**macOS arm64:** the `macosx_26_0_arm64` wheel loads pages over direct HTTPS through `libnecko_core.dylib` and `libnecko_quic.dylib`, linked against the NSS of the same Firefox source. It has no xpcshell. `Context(proxy=...)` uses an HTTP CONNECT tunnel into `libnecko_core` when that binary is absent. The Necko helper runs on the Python that installed ruyijs; its packages are dependencies of the macOS wheel. Details and the remaining gaps are in [docs/macos.md](docs/macos.md).
 
 **Linux x86_64:** the `manylinux_2_39_x86_64` wheel is a native ELF build, contributed by [@Starktomy](https://github.com/Starktomy) in #5. Text uses fontconfig, FreeType and HarfBuzz with the fonts installed on the machine, WebCrypto uses OpenSSL 3, and the Necko helper (NSS 3.131, Neqo for HTTP/3) brings its own Python. See [docs/linux.md](docs/linux.md).
 
@@ -68,7 +68,7 @@ python -m pip install --upgrade ruyijs
 To verify the installation:
 ```python
 import ruyijs
-print(ruyijs.__version__)   # 0.3.0
+print(ruyijs.__version__)   # 0.3.3
 ```
 
 ### Build from source
@@ -155,7 +155,7 @@ with Context() as context:
 
 ### Native network over Necko
 
-In-page `fetch` and XHR ride real HTTP/1.1, 2, and 3, through a proxy scoped to the context. Serve responses yourself with `put_resource()` to replay an entire captured flow offline. Inspect every request with `net_log()`. On macOS, pages load over direct HTTPS; proxies are not available there yet (`docs/macos.md`).
+In-page `fetch` and XHR ride real HTTP/1.1, 2, and 3, through a proxy scoped to the context. Serve responses yourself with `put_resource()` to replay an entire captured flow offline. Inspect every request with `net_log()`. On macOS, pages load over direct HTTPS. A proxy uses the donor xpcshell when it is present, and an HTTP CONNECT tunnel into `libnecko_core` when it is not (`docs/macos.md`).
 
 ### Native TLS fingerprint — switchable across Firefox 100 – 159
 
@@ -185,6 +185,20 @@ Pass data in with `set()`, get callable JS functions out, and expose Python func
 with Context() as context:
     context.expose(lambda a, b: a + b, "add")
     print(context.eval("add(20, 22)"))  # 42
+```
+
+### Many independent sessions in one process
+
+A `Context` starts its own process. An `Engine` runs many Contexts as sessions of one process instead, each on its own thread with its own heap, page, clock, cookies, storage, proxy and TLS profile, in parallel. `prewarm` and `network=` trim the Necko helper processes, which are most of a Context's memory: four sessions measured 221 MiB in 5 processes against 378 MiB in 12 for four Contexts, and 151 MiB in 3 when they share one network ([docs/engine.md](docs/engine.md)).
+
+```python
+from ruyijs import Context, Engine, use_engine
+
+with Engine() as engine:
+    a = engine.context(proxy="http://127.0.0.1:7890")
+    b = engine.context(tls="120")
+    with use_engine(engine):
+        c = Context()          # code that creates its own Contexts joins the engine too
 ```
 
 ### Deterministic clock
@@ -235,6 +249,7 @@ python -m ruyijs.examples                      # list every example and its inst
 python -m ruyijs.examples akamai               # Akamai Bot Manager 3.x
 python -m ruyijs.examples datadome             # DataDome interstitial device-check
 python -m ruyijs.examples creepjs              # CreepJS fingerprint audit
+python -m ruyijs.examples --shared akamai datadome creepjs   # several at once, one shared engine
 ```
 
 Every example supports `--direct` (direct connection) and `--proxy http://127.0.0.1:7890`. Add `--help` after a name for all options, and `--output result.json` to save results. Each example directory ships its own README.
@@ -249,6 +264,7 @@ Every example supports `--direct` (direct connection) and `--proxy http://127.0.
 | **`configure_clock` / `advance` / `tick`** | Logical vs. system clock, drive the event loop |
 | **`JSError` / `console_log` / `net_log`** | Errors as exceptions, console and network records |
 | **`JSObject` / `JSFunction` / `get_runtime_path`** | Live JS handles, bundled-runtime path |
+| **`Engine` / `engine.context` / `use_engine`** | Many independent Contexts as sessions of one process |
 
 ## 📏 Scope & limitations
 
@@ -267,7 +283,7 @@ ruyiJS provides JavaScript execution and a broad Web API environment on **Window
 <details>
 <summary><b>Does it work on macOS or Linux?</b></summary>
 
-Yes. PyPI has a `macosx_26_0_arm64` wheel (macOS 26 or later; no proxy support yet) and a `manylinux_2_39_x86_64` wheel (glibc 2.39 or later). See [docs/macos.md](docs/macos.md) and [docs/linux.md](docs/linux.md).
+Yes. PyPI has a `macosx_26_0_arm64` wheel (macOS 26 or later) and a `manylinux_2_39_x86_64` wheel (glibc 2.39 or later). The macOS wheel has no xpcshell; since 0.3.1 `Context(proxy=...)` uses an HTTP CONNECT tunnel there. See [docs/macos.md](docs/macos.md) and [docs/linux.md](docs/linux.md).
 
 The JS engine is Mozilla's official **SpiderMonkey** and the networking stack is Mozilla's official **Necko** — both are built from the official Firefox source, referenced as the `firefox/` submodule.
 </details>
