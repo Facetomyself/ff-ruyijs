@@ -228,6 +228,21 @@ def listener_after_minor_gc(context):
 
 
 @case
+def large_inner_html_keeps_identity(context):
+    """Purging after a large replacement still leaves the new tree readable."""
+    context.load_page("https://test.local/", "<html><body></body></html>")
+    result = context.eval("""
+      const html = Array.from({length: 300}, (_, i) => '<div id="n' + i + '">x</div>').join('');
+      document.body.innerHTML = html;
+      document.body.innerHTML = html;
+      const hit = document.getElementById('n10');
+      document.body.querySelector('div').setAttribute('title', 't');
+      ({count: document.querySelectorAll('div').length, id: hit && hit.id, title: document.querySelector('div').getAttribute('title')})
+    """)
+    return result.get("count") == 300 and result.get("id") == "n10" and result.get("title") == "t", result
+
+
+@case
 def network_timing_v3(context):
     """Over the Necko transport, a same-origin fetch reports measured phases.
 
