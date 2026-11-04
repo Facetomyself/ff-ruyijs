@@ -228,6 +228,23 @@ def listener_after_minor_gc(context):
 
 
 @case
+def custom_element_still_connects(context):
+    """A parsed custom element still upgrades and runs connectedCallback."""
+    context.load_page("https://test.local/", "<html><body></body></html>")
+    result = context.eval("""
+      class Flag extends HTMLElement {
+        constructor() { super(); this.n = 0; }
+        connectedCallback() { this.n += 1; }
+      }
+      customElements.define('x-flag', Flag);
+      document.body.innerHTML = '<x-flag id=f></x-flag><div id=d></div>';
+      const el = document.getElementById('f');
+      ({upgraded: el instanceof Flag, connected: el.n, plain: document.getElementById('d').tagName})
+    """)
+    return result.get("upgraded") is True and result.get("connected") == 1 and result.get("plain") == "DIV", result
+
+
+@case
 def network_timing_v3(context):
     """Over the Necko transport, a same-origin fetch reports measured phases.
 
