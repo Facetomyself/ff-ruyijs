@@ -1,0 +1,19 @@
+# Bugbot reads this from the PR base branch only.
+# Enable the product switch in Cursor → Automations → Bugbot for this repo.
+version: 1
+
+triggers:
+  drafts: false
+  frequency: everyPush
+
+review:
+  effort: default
+  incremental: true
+
+prSummary:
+  mode: comment
+  riskScore: true
+
+# Keep autofix off so reviews never rewrite in-flight Mac feature branches.
+autofix:
+  mode: disabled
