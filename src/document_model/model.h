@@ -278,6 +278,9 @@ class Model final {
 
 
   Status Inspect(NodeKey node, NodeSnapshot* result) const noexcept;
+  // The node type only. Interface receivers use this instead of Inspect,
+  // which also names siblings and copies strings they do not read.
+  Status Kind(NodeKey node, NodeKind* result) const noexcept;
   // The fields ReadLayoutNode keeps. Skips the sibling scan and the name,
   // namespace, and doctype strings Inspect copies and layout does not read.
   Status InspectLayout(NodeKey node, NodeSnapshot* result) const noexcept;
@@ -314,6 +317,9 @@ class Model final {
   Status TableAttribute(NodeKey node, DomStringView attr, DomString*) const noexcept;
   Status TableSpan(NodeKey node, DomStringView attr, uint32_t*) const noexcept;
   Status Children(NodeKey node, std::vector<NodeKey>* result) const noexcept;
+  // Tag, kind, owner document and connection, without the sibling scan or the
+  // name strings Inspect copies. Custom-element upgrade reads only these.
+  Status PeekElement(NodeKey node, NodeSnapshot* result) const noexcept;
   Status AncestorPath(NodeKey node, std::vector<NodeKey>* result) const noexcept;
   // Event topology flags bit 0 marks a closed root; one spare flag is reserved for Window.
   Status EventPath(NodeKey node, bool composed, std::vector<NodeKey>* result,

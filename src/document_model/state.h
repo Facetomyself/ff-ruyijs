@@ -4,10 +4,12 @@
 #include "document_model/realm.h"
 #include "document_model/model.h"
 #include "document_model/collections.h"
+#include <functional>
 #include <map>
 #include <set>
 #include <string>
 #include <memory>
+#include <unordered_map>
 #include <vector>
 #include "jsapi.h"
 #include "js/CallArgs.h"
@@ -26,6 +28,16 @@ struct State;
 struct NodeKeyLess {
   bool operator()(const NodeKey& a, const NodeKey& b) const {
     return a.document != b.document ? a.document < b.document : a.node < b.node;
+  }
+};
+struct NodeKeyHash {
+  size_t operator()(const NodeKey& key) const {
+    return std::hash<uint64_t>{}(key.document) ^ (std::hash<uint64_t>{}(key.node) << 1);
+  }
+};
+struct NodeKeyEqual {
+  bool operator()(const NodeKey& a, const NodeKey& b) const {
+    return a.document == b.document && a.node == b.node;
   }
 };
 struct CustomElementDefinition {
@@ -254,6 +266,8 @@ struct State {
   void FlushFrameLifecycle();
   void DiscardFramesIn(const std::vector<NodeKey>& removed);
   std::unique_ptr<ReflectedLink> reflected;
+  std::unordered_map<NodeKey, ReflectedLink*, NodeKeyHash, NodeKeyEqual> reflectedIndex;
+  void DropReflected(ReflectedLink* link);
   std::unique_ptr<Wrapper> wrappers;
   Wrapper* factoryWrappers = nullptr;  // Borrowed original factory lifetime links.
   // Key lookup over the same wrapper list; never a second identity source.
@@ -316,7 +330,8 @@ struct State {
   // and removedNodes). The record is owned by the object and freed by the
   // collection class finalizer.
   bool NodeListOwned(const std::vector<NodeKey>&, JS::MutableHandleObject,
-                     CollectionKind kind = CollectionKind::NodeList, State* factory = nullptr);
+                     CollectionKind kind = CollectionKind::NodeList, State* factory = nullptr,
+                     bool defer = false);
   bool TokenListOwned(Wrapper&, DomStringView attribute, JS::MutableHandleValue);
   bool SyncTokenViews(uint64_t revision);
   bool SyncCollections();
