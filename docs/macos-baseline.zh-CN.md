@@ -8,14 +8,17 @@
 
 后续 macOS 工作以上游 `cutetailbud/ff-ruyijs` 的 `main` 为底。
 
-2026-10-31 核对时，这个尖端是 `da1df2ce375131eb37234dba4638a5ce0d96a532`，说明是 `docs: show contributors under the sponsor as round avatars`。下一次同步前再读一次 `main`。新分支用当天读到的尖端。
+2026-11-01 核对时，这个尖端是 `6d4531792b3f71379c9a53182930668f80bbdadf`，说明是 `release: pin the 0.3.0 runtime`。下一次同步前再读一次 `main`。新分支用当天读到的尖端。
 
-维护方 fork 是 `Facetomyself/ff-ruyijs`。快进之前，它的 `main`、`release/macos` 和 `tls/necko-core-arm64` 停在 `0a82adb4e9c3ed1a046dde5953676c00442da59c`。该提交经合并 `0d42c60` 成为上游 `main` 的祖先，本身不包含 `d49bfd3`。快进到 `da1df2c` 才会把守卫带进来。
+维护方 fork 是 `Facetomyself/ff-ruyijs`。快进之前，它的 `main`、`release/macos` 和 `tls/necko-core-arm64` 停在 `0a82adb4e9c3ed1a046dde5953676c00442da59c`。该提交经合并 `0d42c60` 成为上游 `main` 的祖先，本身不包含 `d49bfd3`。快进到 `da1df2c` 才会把守卫带进来。那次快进之后上游前进到 `fd094ed`，随后到 `6d45317`。已经带着 gaps 文档停在 `da1df2c` 上的 fork 线先合并 `fd094ed`，再把 `6d45317` 合并为 `94f3540`，而不是重置。
 
 上游 `main` 上需要记住的提交，从新到旧：
 
 | 提交 | 内容 |
 | --- | --- |
+| `6d45317` | `release: pin the 0.3.0 runtime`。 |
+| `d32dd74` | `release: 0.3.0 — wheels for Windows, macOS and Linux from the Firefox 159.0 source`。 |
+| `fd094ed` | 用 Firefox 159.0 子模块在 CI 里编 Windows 与 macOS wheel。 |
 | `da1df2c` | 赞助者下方的贡献者圆头像。只改文档。 |
 | `05b68fa` | 在 PR #4 旁边补上 PR #6 的署名。只改文档。 |
 | `0d42c60` | 合并 PR #6。父提交是 `48963a0` 和 `0a82adb`。 |
@@ -28,9 +31,11 @@
 
 ## 移动 fork
 
+当前流程在 [branching.zh-CN.md](branching.zh-CN.md)：从本 fork 的 `main` 拉出 `sync/<sha>`，在那上面合并上游，核过受影响的平台，再合并回 `main`。下面几段是 2026-11-01 把 fork 从 `0a82adb` 移开的记录，不是下一次同步的流程。
+
 下一次同步把上游 `main` 带进 fork，这次同步本身不带功能改动。
 
-上面核对的 `main` 仍以 `0a82adb` 为祖先，因此同步是把 fork 分支快进到那个 `main`。这次快进带入 `d49bfd3`、`05b68fa` 和 `da1df2c`。
+上面核对的 `main` 仍以 `0a82adb` 为祖先。第一次同步把 fork 分支快进过 `da1df2c`，带入 `d49bfd3`、`05b68fa` 和 `da1df2c`。第二次同步把 `fd094ed` 合并进已经停在那个尖端上的 gaps 线。第三次同步把 `6d45317` 合并为 `94f3540`。
 
 再把 `0a82adb` 当成当前线推上去，守卫和后面的文档提交就会留在外面。历史若已经分叉，就合并上游 `main`。不使用 `reset --hard`，也不强推。
 
@@ -76,9 +81,9 @@ Apple 头文件放在 `#ifndef _WIN32` 里面，或者放在 `#ifdef _WIN32` 的
 
 ## 发布底线
 
-macOS 产物只挂在 `Facetomyself/ff-ruyijs` 的 Release 上。不上传到 PyPI，也不挂到 `cutetailbud/ff-ruyijs` 的 Release。
+从 0.3.0 起，PyPI 另有一份不带 xpcshell 的 `macosx_26_0_arm64` wheel。代理仍只在 donor 构建里。macOS 压缩包和带 xpcshell 的 wheel 仍挂在 `Facetomyself/ff-ruyijs` 的 Release `v0.2.1` 上。这些 fork 附件不挂到 `cutetailbud/ff-ruyijs` 的 Release。
 
-`runtime.json` 的 `macos.url`、`sha256` 和 `size` 在该 URL 已经存在之后再写。Windows 的 `url`、`sha256` 和 `size` 保持已发布的值。
+`runtime.json` 的 `macos.url`、`sha256` 和 `size` 在该 URL 已经存在之后再写。Windows 的 `url`、`sha256` 和 `size` 保持当前 `runtime.json` 里已发布的值。
 
 已有标签留在原地。fork 的标签 `v0.2.1` 创建于 `0a82adb` 之前。它的附件留在那里。替换用的压缩包用新标签或新的附件名。
 
@@ -91,7 +96,7 @@ macOS 产物只挂在 `Facetomyself/ff-ruyijs` 的 Release 上。不上传到 Py
 
 压缩包 URL 就是 `runtime.json` 里的 `macos.url`：`https://github.com/Facetomyself/ff-ruyijs/releases/download/v0.2.1/ruyijs-runtime-macos-arm64.zip`。
 
-Windows 压缩包保持 `ruyijs-runtime-0.2.1-win-amd64.zip`，大小 42739018，sha256 `488f3b59dc2abb84d60c6dae6433fe711502b904e421bd8f939d85e088f95eca`，URL `https://github.com/cutetailbud/ff-ruyijs/releases/download/v0.2.1/ruyijs-runtime-0.2.1-win-amd64.zip`。
+Windows 压缩包是上游 `v0.3.0` 的 `ruyijs-runtime-0.3.0-win-amd64.zip`，大小 42977336，sha256 `d733f878ef5b4b7aacce715d0e7563e090b97198696ee2990ea07050680db2cc`，URL `https://github.com/cutetailbud/ff-ruyijs/releases/download/v0.3.0/ruyijs-runtime-0.3.0-win-amd64.zip`。
 
 Darwin wheel 标签保持 `macosx_26_0_arm64`。
 

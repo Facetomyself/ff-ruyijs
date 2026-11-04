@@ -12,9 +12,9 @@ ff-ruyijs is a **headless Firefox engine for Python** — it embeds the real Spi
 ## Key facts
 
 - **Language:** Python 3.10+ (user-facing), C++ (engine bindings), JavaScript (browser contexts)
-- **Platform:** Windows x64, and macOS arm64 as a source build
+- **Platform:** Windows x64, macOS arm64 and Linux x86_64
 - **License:** AGPL-3.0-only + commercial (dual license); Mozilla-derived code is MPL-2.0
-- **Install:** `pip install ruyijs` on Windows. On macOS arm64, build `dist/js` from source. The donor layout and the comparison are in `docs/macos.md`.
+- **Install:** `pip install ruyijs` (PyPI wheels for Windows x64, macOS arm64 and Linux x86_64, built by `.github/workflows/wheels.yml` from the `firefox/` submodule). Platform notes are in `docs/macos.md` and `docs/linux.md`.
 - **Entry point:** `from ruyijs import Context`
 
 ## Repository layout
@@ -44,6 +44,11 @@ assets/                 README images and architecture diagrams
 | `Context.put_resource(url, body)` | Serve a response offline |
 | `JSError` | JavaScript exception with name, message, stack |
 | `JSObject` / `JSFunction` | Live handles to JS objects callable from Python |
+| `Engine` / `engine.context(...)` / `use_engine(engine)` | Many independent Contexts as sessions (threads) of one shared process |
+
+## Branches
+
+`docs/branching.md` and `docs/branching.zh-CN.md` are the branch rules. `main` is the trunk for Linux, macOS, and Windows. Cut feature work from `main`. Bring upstream in on `sync/<sha>` by merge, then check each affected platform before merging to `main`. Do not commit on `release/macos`. Do not push a documentation commit onto every other branch. Do not push `upstream`.
 
 ## Branch map
 
@@ -57,10 +62,11 @@ Keep this map on every branch of `origin`. After the files change, apply those d
 
 ## Conventions
 
-- Each `Context` is an **isolated process** — no shared state between contexts.
+- Each `Context` is an **isolated process** — no shared state between contexts — unless it is a session of an
+  `Engine`, which runs many Contexts in one process, each on its own thread with its own state (docs/engine.md).
 - Examples are run via `python -m ruyijs.examples <name>`.
 - All examples support `--proxy`, `--direct`, `--output`, `--help`.
-- The Windows wheel bundles a SHA256-pinned native runtime; that wheel needs no browser download. The macOS shell is `dist/js`, built against donor trees kept outside this repository. See `docs/macos.md`.
+- Every wheel bundles its native runtime, built from the official Firefox 159.0 source in the `firefox/` submodule; no browser download is needed. The macOS wheel has no xpcshell. A proxy uses that binary when it is present, and an HTTP CONNECT tunnel into `libnecko_core` when it is not (`docs/macos.md`).
 
 ## What NOT to do
 

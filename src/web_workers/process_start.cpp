@@ -1,5 +1,6 @@
 #ifndef _WIN32
 #include "web_workers/process.h"
+#include "runtime/transport_partition.h"
 
 #include <cerrno>
 #include <cstdint>
@@ -85,19 +86,39 @@ StartResult Process::Start(std::wstring_view executable, std::string initial, Wo
     posix_spawn_file_actions_t actions;
     if (posix_spawn_file_actions_init(&actions) != 0) return fail(StartError::Job, static_cast<unsigned>(errno));
     // Match CreateProcess bInheritHandles=FALSE: keep stdio, close the RPC socket.
-    // environ is still the parent's, so RUYIJS_HTTP_PROXY reaches the worker.
+    // environ is still the parent's, so RUYIJS_HTTP_PROXY reaches the worker;
+    // a shared engine's session gives it its own proxy and TLS release.
+    const PartitionRef partition = CurrentPartition();
+    std::vector<std::string> environment;
+    std::vector<char*> envp;
+    if (Overrides(*partition)) {
+      environment = EnvironmentStrings(*partition);
+      for (std::string& entry : environment) envp.push_back(entry.data());
+      envp.push_back(nullptr);
+    }
+#if defined(__linux__)
+    // glibc 2.34+: close every descriptor above stderr in the child, which is
+    // what POSIX_SPAWN_CLOEXEC_DEFAULT with inherited stdio does on Darwin.
+    bool armed = posix_spawn_file_actions_addclosefrom_np(&actions, STDERR_FILENO + 1) == 0;
+#else
     bool armed = posix_spawn_file_actions_addinherit_np(&actions, STDIN_FILENO) == 0 &&
                  posix_spawn_file_actions_addinherit_np(&actions, STDOUT_FILENO) == 0 &&
                  posix_spawn_file_actions_addinherit_np(&actions, STDERR_FILENO) == 0;
+#endif
     posix_spawnattr_t attr;
     if (posix_spawnattr_init(&attr) != 0) {
       posix_spawn_file_actions_destroy(&actions);
       return fail(StartError::Job, static_cast<unsigned>(errno));
     }
+#if defined(__linux__)
+    armed = armed && posix_spawnattr_setflags(&attr, POSIX_SPAWN_SETPGROUP) == 0 &&
+#else
     armed = armed && posix_spawnattr_setflags(&attr, POSIX_SPAWN_SETPGROUP | POSIX_SPAWN_CLOEXEC_DEFAULT) == 0 &&
+#endif
                      posix_spawnattr_setpgroup(&attr, 0) == 0;
     pid_t child = 0;
-    const int spawned = armed ? posix_spawn(&child, program.c_str(), &actions, &attr, argv.data(), environ) : -1;
+    const int spawned = armed ? posix_spawn(&child, program.c_str(), &actions, &attr, argv.data(),
+                                             envp.empty() ? environ : envp.data()) : -1;
     const int spawnError = spawned;
     posix_spawnattr_destroy(&attr);
     posix_spawn_file_actions_destroy(&actions);
@@ -111,6 +132,7 @@ StartResult Process::Start(std::wstring_view executable, std::string initial, Wo
 }
 #else
 #include "web_workers/process.h"
+#include "runtime/transport_partition.h"
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #include <windows.h>
@@ -150,8 +172,17 @@ StartResult Process::Start(std::wstring_view executable, std::string initial, Wo
     else if (kind == WorkerKind::Shared) command += L" --ruyijs-worker-kind shared";
     STARTUPINFOW startup{};startup.cb = sizeof(startup);
     PROCESS_INFORMATION information{};
+    // A shared engine's session gives its worker its own proxy and TLS release.
+    const PartitionRef partition = CurrentPartition();
+    std::wstring environment;
+    if (Overrides(*partition)) environment = EnvironmentBlock(*partition);
+    // DETACHED_PROCESS: no console and no conhost.exe; a worker talks over its
+    // RPC pipe only, and writes to absent standard handles are dropped.
     if (!CreateProcessW(path.c_str(), command.data(), nullptr, nullptr, FALSE,
-                        CREATE_NO_WINDOW | CREATE_SUSPENDED, nullptr, nullptr, &startup, &information))
+                        DETACHED_PROCESS | CREATE_SUSPENDED |
+                            (environment.empty() ? 0 : CREATE_UNICODE_ENVIRONMENT),
+                        environment.empty() ? nullptr : environment.data(), nullptr, &startup,
+                        &information))
       return fail(StartError::Create, GetLastError());
     process_ = information.hProcess;
     if (!AssignProcessToJobObject(job_, process_)) {

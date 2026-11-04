@@ -1,6 +1,6 @@
 # macOS arm64
 
-This is the maintainer path for the macOS shell. Windows x64 still installs from the PyPI wheel. macOS builds a `macosx_26_0_arm64` wheel after `dist/js` and `dist/libmozglue.dylib` exist. `runtime.json` records that archive's size, sha256, and fork-release URL. The wheel is not uploaded to PyPI.
+Since 0.3.0 the `macosx_26_0_arm64` wheel is on PyPI. GitHub Actions builds it from the `firefox/` submodule (`.github/workflows/build-macos.yml`): SpiderMonkey, Skia and NSS come from that source, and `libnecko_core.dylib` and `libnecko_quic.dylib` are linked against that NSS. It has no xpcshell. When that binary is absent, `Context(proxy=...)` opens an HTTP CONNECT tunnel and then uses `libnecko_core`. The donor-tree path below still includes xpcshell and keeps the Necko proxy prefs.
 
 The same facts are written in [macos.zh-CN.md](macos.zh-CN.md). Maintenance rules are in [macos-baseline.md](macos-baseline.md). Current gaps and goals are in [macos-gaps.md](macos-gaps.md).
 
@@ -10,7 +10,7 @@ The shared Python API, DOM, clock, and page logic stay one source tree. macOS ad
 
 - Same API: JS contexts, DOM, the Python bridge, WebCrypto algorithms, and the static image formats.
 - Acceptable platform differences: a named pipe or a Unix socket, CNG or CommonCrypto, WIC or ImageIO, DirectWrite or Core Text. GIF disposal, glyph gamma, and CJK fallback follow the system decoder. They are not pixel-identical to Windows.
-- Still outside this port: the socket process stays off. Turning the prefs on makes this xpcshell exit with signal 11 while filling Mac sandbox parameters. The donor `plugin-container.app` is produced by building `ipc/app`. Direct HTTPS follows `Context(tls=)` through `libnecko_core.dylib` for ClientHello counts and for the 0.2.1 header and HTTP/2 settings table. Pages were rechecked for 100 and 159. Eight boundary versions were library GETs, not pages. A proxy stays on xpcshell and was not retested. DNS, connect, and TLS timing slots stay 0. There is no PyPI macOS wheel. `macos.url` is the fork release zip. Direct cleartext and HTTP/3 are in `docs/closed-route.zh-CN.md`.
+- Still outside this port: the socket process stays off. Turning the prefs on makes this xpcshell exit with signal 11 while filling Mac sandbox parameters. The donor `plugin-container.app` is produced by building `ipc/app`. Direct HTTPS follows `Context(tls=)` through `libnecko_core.dylib` for ClientHello counts and for the 0.2.1 header and HTTP/2 settings table. Pages were rechecked for 100 and 159. Eight boundary versions were library GETs, not pages. A proxy stays on xpcshell when that binary exists. Without it, HTTPS uses CONNECT and cleartext uses an absolute-form request; HTTP/3 does not go through the proxy. DNS, connect, and TLS timing slots stay 0. The PyPI wheel has no xpcshell. `macos.url` is the fork release zip. Direct cleartext and HTTP/3 are in `docs/closed-route.zh-CN.md`.
 
 ## What lives where
 
@@ -81,7 +81,7 @@ python3.12 -B tools/bootstrap_macos_helper.py
 python3.12 -B tools/build.py --donor-obj ../firefox-159/obj-js-standalone
 ```
 
-Bootstrap installs `requests`, `brotli`, `zstandard`, `h2`, `cryptography`, `backports.zstd`, and `publicsuffixlist`. Missing wheels come only from gitignored `vendor/necko-derived/wheels`, with `pip --no-index`. Fill that directory with `curl --noproxy '*'` from a mirror of the simple index. An empty directory and a missing import stop the script. The script contains no proxy address. This round did not run bootstrap again. The current helper already imports `publicsuffixlist`. `firefox-suffixes.dat` sits beside `necko_win/_firefox.py` and is copied with that directory. Direct HTTPS uses `h2` and `cryptography` with the library. `requests` still prepares the frame that oneshot already spoke on Windows. A proxy or a non-HTTPS URL still uses the donor xpcshell.
+Bootstrap installs `requests`, `brotli`, `zstandard`, `h2`, `cryptography`, `backports.zstd`, and `publicsuffixlist`. Missing wheels come only from gitignored `vendor/necko-derived/wheels`, with `pip --no-index`. Fill that directory with `curl --noproxy '*'` from a mirror of the simple index. An empty directory and a missing import stop the script. The script contains no proxy address. This round did not run bootstrap again. The current helper already imports `publicsuffixlist`. `firefox-suffixes.dat` sits beside `necko_win/_firefox.py` and is copied with that directory. Direct HTTPS uses `h2` and `cryptography` with the library. `requests` still prepares the frame that oneshot already spoke on Windows. A proxy uses the donor xpcshell when that binary exists. Without it, HTTPS uses CONNECT and cleartext uses an absolute-form request. A non-HTTP URL still uses the donor xpcshell.
 
 `tools/build.py` then copies tracked sources into the venv:
 
@@ -105,12 +105,11 @@ On Windows the same build copies only `oneshot.py`. If the Darwin venv is missin
 
 The shell binary is `dist/js`. Point examples at it with `RUYIJS_SHELL` set to that path, and put `python/` on `PYTHONPATH`. The client library is `libruyijs_client.dylib`.
 
-A local wheel is tagged `macosx_26_0_arm64`. It places the shell at `_runtime/dist/js` and copies the donor xpcshell closure to `_runtime/dist/necko`, including `libnecko_quic.dylib` when that library exists. The wheel also includes `necko/closed_route.py`, `necko/core_client.py`, and `necko_win`. The wheel and `ruyijs-runtime-macos-arm64.zip` are on the maintainer fork release, not on PyPI. Regenerate the archive with `python3.12 -B tools/macos_runtime.py <zip-path>`, then store the printed size and sha256 in the `runtime.json` `macos` object together with the release URL.
+A local wheel is tagged `macosx_26_0_arm64`. It places the shell at `_runtime/dist/js` and copies the donor xpcshell closure to `_runtime/dist/necko`, including `libnecko_quic.dylib` when that library exists. The wheel also includes `necko/closed_route.py`, `necko/core_client.py`, and `necko_win`. The PyPI wheel has no xpcshell. The fork `v0.2.1` zip remains `runtime.json` `macos.url`. The donor build is the one that includes xpcshell. Regenerate the archive with `python3.12 -B tools/macos_runtime.py <zip-path>`, then store the printed size and sha256 in the `runtime.json` `macos` object together with the release URL.
 
 ## How a request moves
 
-The length-prefixed frame format is the same as Windows. On macOS the pipe is a Unix socket. The shell starts `python -I -B -m ruyijs_necko.oneshot`. Direct HTTPS uses `libnecko_core.dylib`. ALPN `h2` uses the product HTTP/2 settings. ALPN `http/1.1` writes HTTP/1.1 on that socket. Another ALPN is unwired, and the router may fall back. A proxy keeps xpcshell for that request. Direct `http://` uses the socket and HTTP/1 exchange in `libnecko_core`. Direct `https://` uses `libnecko_core` until a remembered response `Alt-Svc` sends the next same-process request for that origin through `libnecko_quic`. Certificate verification failure does not fall back. Cookies are not stored. `redirectionLimit` stays 0, including on the xpcshell path, so a 3xx response is returned as the response. Inside one helper process, same-origin HTTP/2 can reuse one connection. The page shell still starts one oneshot per request unless `--session` is used.
-
+The length-prefixed frame format is the same as Windows. On macOS the pipe is a Unix socket. The shell starts `python -I -B -m ruyijs_necko.oneshot`. Direct HTTPS uses `libnecko_core.dylib`. ALPN `h2` uses the product HTTP/2 settings. ALPN `http/1.1` writes HTTP/1.1 on that socket. Another ALPN is unwired, and the router may fall back. A proxy keeps xpcshell when that binary exists; otherwise HTTPS uses CONNECT and cleartext uses an absolute-form request. Direct `http://` uses the socket and HTTP/1 exchange in `libnecko_core`. Direct `https://` uses `libnecko_core` until a remembered response `Alt-Svc` sends the next same-process request for that origin through `libnecko_quic`. Certificate verification failure does not fall back. Cookies are not stored. The direct library route returns a 3xx response for its caller to handle; the xpcshell route follows up to 20 redirects. Inside one helper process, same-origin HTTP/2 can reuse one connection. The page shell still starts one oneshot per request unless `--session` is used.
 Verified on direct HTTPS pages: HTTP/2, version code 20, for 100 and 159. HTTP/1.1 on this socket was unit-tested. A later direct-TLS check of `https://www.gnu.org/` returned status 200 and version 11. The earlier xpcshell path had also returned HTTP/1.1. Direct cleartext and HTTP/3 use the same export names as the Windows DLLs. A local HTTP/1.1 server returned status 200 and version 11. A local Neqo server returned version 30 on the second request after the response `Alt-Svc` was remembered. A bad certificate on that second request failed and was not status 200. Public `quic.nginx.org` did the same: version 20, then version 30, with the same body. `cloudflare.com` did not send `Alt-Svc`, so both requests stayed version 20. The donor xpcshell still returns `necko 804b0033` for plain HTTP if a request reaches it. Turning the socket process on makes this xpcshell close the pipe and write no error. Do not add another QUIC stack.
 
 ## System frameworks
@@ -175,7 +174,7 @@ Reviewed against upstream `a626670`. That range includes the 0.2.1 shell, the CS
 | iframe document load | Shared source. Necko ticks map through QueryPerformanceCounter | Same source. Ticks map through `steady_clock` milliseconds, as in `page_navigation.cpp`. One iframe document returned status 200 and `h2` |
 | WebCodecs, audio decode, WebGPU, customized built-ins, XML, form target | Same source | Interface only, or an explicit unimplemented error |
 | DataDome homepage | Server score | Server score. The example pass condition is unchanged |
-| Install | PyPI `win_amd64` wheel for 0.2.1 | `macosx_26_0_arm64` wheel and `ruyijs-runtime-macos-arm64.zip` are on the fork release `v0.2.1`. `runtime.json` `macos.url` points at that zip. They are not on PyPI |
+| Install | PyPI `win_amd64` wheel for 0.2.1 | The PyPI `macosx_26_0_arm64` wheel has no xpcshell. The fork `v0.2.1` zip remains `runtime.json` `macos.url`. The donor build is the one that includes xpcshell |
 | C ABI client | DLL beside the shell | `libruyijs_client.dylib` install name `@rpath/libruyijs_client.dylib`, rpath `@executable_path`. XUL, xpcshell, and NSS names stay as Firefox wrote them |
 
 `image_wic.h` still contains a POSIX stub. macOS decode goes through ImageIO in `image_codec.cpp` and `image_gif.cpp`.
@@ -189,7 +188,7 @@ The shell stays linked for `macosx_26_0_arm64`. Linux, Intel Macs, and macOS old
 3. C client install name is done. `otool -D` prints `@rpath/libruyijs_client.dylib`, and the rpath is `@executable_path`.
 4. Image pixels. Keep ImageIO. A fixture can record the GIF background difference. Change pixels only when ImageIO already exposes the matching disposal.
 5. Font aliases. `Osaka-Mono` to `Osaka` is the only Mac alias. Mac family selection stays the Core Text cascade. The upstream pref-lang, SimSun, and Arial lists stay on the Windows side of `font_collection.cpp`. The Windows cache separator stays the source escape `'\0'`, so the file stays text.
-6. Publish. `runtime.json` `macos.url` is the fork release zip for `v0.2.1`. The same release holds `ruyijs-0.2.1-py3-none-macosx_26_0_arm64.whl`. Neither file is on PyPI. A clean install imported. Direct HTTPS returned status 200 and version 20. A local HTTP/3 second request returned status 200 and version 30. `libnecko_quic.dylib` loaded from the packaged `dist/necko` directory. COLRv1, Linux, Intel Macs, and macOS older than 26 stay out.
+6. Publish. The PyPI wheel has no xpcshell. The fork `v0.2.1` zip remains `runtime.json` `macos.url`. The donor build is the one that includes xpcshell. The same release holds `ruyijs-0.2.1-py3-none-macosx_26_0_arm64.whl`. A clean install imported. Direct HTTPS returned status 200 and version 20. A local HTTP/3 second request returned status 200 and version 30. `libnecko_quic.dylib` loaded from the packaged `dist/necko` directory. COLRv1, Linux, Intel Macs, and macOS older than 26 stay out.
 
 ## What not to commit
 
@@ -201,7 +200,7 @@ Include the ruyijs commit, the macOS version, the Xcode version, the Python vers
 
 ## Maintainer fork
 
-Further macOS work is based on upstream `cutetailbud/ff-ruyijs` `main`. A branch still at `0a82adb` does not contain the Windows guard. This tip fast-forwarded to that `main`. Rules for the next sync, commits, and releases are in [macos-baseline.md](macos-baseline.md). Current gaps and goals are in [macos-gaps.md](macos-gaps.md). The map of every fork and upstream branch is [BRANCHES.md](BRANCHES.md).
+Branch rules are in [branching.md](branching.md). `main` is the trunk. macOS is verified on the maintainer's Mac before a change lands there. The donor floor and what not to commit stay in [macos-baseline.md](macos-baseline.md). Current gaps are in [macos-gaps.md](macos-gaps.md).
 
 ## Closed route
 

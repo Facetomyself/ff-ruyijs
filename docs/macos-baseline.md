@@ -8,14 +8,17 @@ The same rules are written in [macos-baseline.zh-CN.md](macos-baseline.zh-CN.md)
 
 Further macOS work is based on upstream `cutetailbud/ff-ruyijs` `main`.
 
-Checked on 2026-10-31, that tip is `da1df2ce375131eb37234dba4638a5ce0d96a532`, subject `docs: show contributors under the sponsor as round avatars`. Read `main` again before the next sync. A new branch uses the tip read that day.
+Checked on 2026-11-01, that tip is `6d4531792b3f71379c9a53182930668f80bbdadf`, subject `release: pin the 0.3.0 runtime`. Read `main` again before the next sync. A new branch uses the tip read that day.
 
-The maintainer fork is `Facetomyself/ff-ruyijs`. Before the fast-forward, its `main`, `release/macos`, and `tls/necko-core-arm64` were at `0a82adb4e9c3ed1a046dde5953676c00442da59c`. That commit is an ancestor of upstream `main` through merge `0d42c60`. It does not itself contain `d49bfd3`. The fast-forward to `da1df2c` is what brings the guard in.
+The maintainer fork is `Facetomyself/ff-ruyijs`. Before the fast-forward, its `main`, `release/macos`, and `tls/necko-core-arm64` were at `0a82adb4e9c3ed1a046dde5953676c00442da59c`. That commit is an ancestor of upstream `main` through merge `0d42c60`. It does not itself contain `d49bfd3`. The fast-forward to `da1df2c` is what brings the guard in. After that fast-forward, upstream advanced to `fd094ed`, then to `6d45317`. The fork line that already carried gaps docs on top of `da1df2c` merges `fd094ed`, then merges `6d45317` as `94f3540`, instead of resetting.
 
 Commits that matter, newest first on upstream `main`:
 
 | Commit | What it is |
 | --- | --- |
+| `6d45317` | `release: pin the 0.3.0 runtime`. |
+| `d32dd74` | `release: 0.3.0 — wheels for Windows, macOS and Linux from the Firefox 159.0 source`. |
+| `fd094ed` | CI builds Windows and macOS wheels from the Firefox 159.0 submodule. |
 | `da1df2c` | Contributor avatars under the sponsor. Docs only. |
 | `05b68fa` | Credits PR #6 next to PR #4. Docs only. |
 | `0d42c60` | Merge of PR #6. Parents `48963a0` and `0a82adb`. |
@@ -28,9 +31,11 @@ The upstream author commented on PR #4 that the Windows build stopped at `<CoreT
 
 ## Moving the fork
 
+The current procedure is [branching.md](branching.md): merge upstream on a `sync/<sha>` branch cut from this fork's `main`, check the affected platforms, then merge to `main`. The paragraphs below are the 2026-11-01 record of how the fork moved off `0a82adb`. They are not the procedure for the next sync.
+
 The next sync brings upstream `main` into the fork and contains no feature change.
 
-`0a82adb` is an ancestor of the `main` checked above, so the sync fast-forwards the fork branches to that `main`. That fast-forward is what brings in `d49bfd3`, `05b68fa`, and `da1df2c`.
+`0a82adb` is an ancestor of the `main` checked above. The first sync fast-forwarded the fork branches through `da1df2c`, which brought in `d49bfd3`, `05b68fa`, and `da1df2c`. The second sync merges `fd094ed` into the gaps line that already sat on that tip. The third sync merges `6d45317` as `94f3540`.
 
 Pushing `0a82adb` again as the current line leaves the guard and the later docs commits out. If the histories have diverged, merge upstream `main`. `reset --hard` and a force-push stay unused.
 
@@ -76,9 +81,9 @@ New text files stay LF in git. `vendor/*` and `/dist/` stay gitignored.
 
 ## Release floor
 
-macOS artifacts are attached only to releases of `Facetomyself/ff-ruyijs`. They stay off PyPI and off `cutetailbud/ff-ruyijs` releases.
+Since 0.3.0, PyPI publishes a `macosx_26_0_arm64` wheel with no xpcshell. Proxies remain only in the donor build. The macOS zip and the wheel that includes xpcshell stay on `Facetomyself/ff-ruyijs` release `v0.2.1`. Those fork assets stay off `cutetailbud/ff-ruyijs` releases.
 
-Write `runtime.json` `macos.url`, `sha256`, and `size` after that URL exists. The Windows `url`, `sha256`, and `size` stay as published.
+Write `runtime.json` `macos.url`, `sha256`, and `size` after that URL exists. The Windows `url`, `sha256`, and `size` stay as published in the current `runtime.json`.
 
 An existing tag stays where it is. Fork tag `v0.2.1` was created before `0a82adb`. Its assets stay attached. A replacement archive uses a new tag or a new asset name.
 
@@ -91,7 +96,7 @@ Published macOS objects:
 
 The zip URL is `macos.url` in `runtime.json`: `https://github.com/Facetomyself/ff-ruyijs/releases/download/v0.2.1/ruyijs-runtime-macos-arm64.zip`.
 
-The Windows archive stays `ruyijs-runtime-0.2.1-win-amd64.zip`, size 42739018, sha256 `488f3b59dc2abb84d60c6dae6433fe711502b904e421bd8f939d85e088f95eca`, URL `https://github.com/cutetailbud/ff-ruyijs/releases/download/v0.2.1/ruyijs-runtime-0.2.1-win-amd64.zip`.
+The Windows archive is upstream `v0.3.0` `ruyijs-runtime-0.3.0-win-amd64.zip`, size 42977336, sha256 `d733f878ef5b4b7aacce715d0e7563e090b97198696ee2990ea07050680db2cc`, URL `https://github.com/cutetailbud/ff-ruyijs/releases/download/v0.3.0/ruyijs-runtime-0.3.0-win-amd64.zip`.
 
 The Darwin wheel tag stays `macosx_26_0_arm64`.
 
