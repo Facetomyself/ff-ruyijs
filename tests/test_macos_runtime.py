@@ -228,69 +228,6 @@ def listener_after_minor_gc(context):
 
 
 @case
-def custom_element_still_connects(context):
-    """A parsed custom element still upgrades and runs connectedCallback."""
-    context.load_page("https://test.local/", "<html><body></body></html>")
-    result = context.eval("""
-      class Flag extends HTMLElement {
-        constructor() { super(); this.n = 0; }
-        connectedCallback() { this.n += 1; }
-      }
-      customElements.define('x-flag', Flag);
-      document.body.innerHTML = '<x-flag id=f></x-flag><div id=d></div>';
-      const el = document.getElementById('f');
-      ({upgraded: el instanceof Flag, connected: el.n, plain: document.getElementById('d').tagName})
-    """)
-    return result.get("upgraded") is True and result.get("connected") == 1 and result.get("plain") == "DIV", result
-
-@case
-def query_list_and_id_index(context):
-    """Static NodeList indexes stay put; a live list and the id index follow edits."""
-    context.load_page("https://test.local/", "<html><body></body></html>")
-    result = context.eval("""
-      document.body.innerHTML = '<div id=a></div><div id=b></div><span id=c></span>';
-      const list = document.querySelectorAll('div');
-      const first = list[0];
-      const byItem = list.item(0);
-      first.remove();
-      const staticKeeps = list.length === 2 && list[0] === first && byItem === first;
-      const renamed = document.getElementById('b');
-      renamed.id = 'z';
-      const idMoved = document.getElementById('b') === null && document.getElementById('z') === renamed;
-      document.body.innerHTML = '<div id=d></div><div id=d class=second></div>';
-      const dup = document.getElementById('d');
-      const firstDup = !dup.className;
-      dup.remove();
-      const second = document.getElementById('d');
-      const parent = document.createElement('div');
-      document.body.appendChild(parent);
-      const kids = parent.childNodes;
-      parent.appendChild(document.createElement('span'));
-      ({staticKeeps, idMoved, firstDup, secondIs: second && second.className,
-        live: kids.length === 1 && kids[0].tagName === 'SPAN'})
-    """)
-    ok = (result.get("staticKeeps") and result.get("idMoved") and result.get("firstDup")
-          and result.get("secondIs") == "second" and result.get("live"))
-    return ok, result
-
-@case
-def element_style_identity(context):
-    """element.style is one object, and writing it updates the style attribute."""
-    context.load_page("https://test.local/", "<html><body></body></html>")
-    result = context.eval("""
-      const el = document.createElement('div');
-      document.body.appendChild(el);
-      const style = el.style;
-      style.cssText = 'color: red; margin-top: 4px';
-      const text = el.getAttribute('style') || '';
-      style.cssText = '';
-      ({same: style === el.style, wrote: text.includes('color') && text.includes('red'),
-        cleared: !el.getAttribute('style'), text})
-    """)
-    return result.get("same") and result.get("wrote") and result.get("cleared"), result
-
-
-@case
 def computed_style_invalidation(context):
     """A cached computed style must change after style, class, attribute and tree edits."""
     context.load_page("https://test.local/", "<html><body></body></html>")
@@ -355,6 +292,69 @@ def target_survives_node_rebuild(context):
         return False, str(error)[:200]
     return fired is True
 
+
+@case
+def element_style_identity(context):
+    """element.style is one object, and writing it updates the style attribute."""
+    context.load_page("https://test.local/", "<html><body></body></html>")
+    result = context.eval("""
+      const el = document.createElement('div');
+      document.body.appendChild(el);
+      const style = el.style;
+      style.cssText = 'color: red; margin-top: 4px';
+      const text = el.getAttribute('style') || '';
+      style.cssText = '';
+      ({same: style === el.style, wrote: text.includes('color') && text.includes('red'),
+        cleared: !el.getAttribute('style'), text})
+    """)
+    return result.get("same") and result.get("wrote") and result.get("cleared"), result
+
+
+@case
+def query_list_and_id_index(context):
+    """Static NodeList indexes stay put; a live list and the id index follow edits."""
+    context.load_page("https://test.local/", "<html><body></body></html>")
+    result = context.eval("""
+      document.body.innerHTML = '<div id=a></div><div id=b></div><span id=c></span>';
+      const list = document.querySelectorAll('div');
+      const first = list[0];
+      const byItem = list.item(0);
+      first.remove();
+      const staticKeeps = list.length === 2 && list[0] === first && byItem === first;
+      const renamed = document.getElementById('b');
+      renamed.id = 'z';
+      const idMoved = document.getElementById('b') === null && document.getElementById('z') === renamed;
+      document.body.innerHTML = '<div id=d></div><div id=d class=second></div>';
+      const dup = document.getElementById('d');
+      const firstDup = !dup.className;
+      dup.remove();
+      const second = document.getElementById('d');
+      const parent = document.createElement('div');
+      document.body.appendChild(parent);
+      const kids = parent.childNodes;
+      parent.appendChild(document.createElement('span'));
+      ({staticKeeps, idMoved, firstDup, secondIs: second && second.className,
+        live: kids.length === 1 && kids[0].tagName === 'SPAN'})
+    """)
+    ok = (result.get("staticKeeps") and result.get("idMoved") and result.get("firstDup")
+          and result.get("secondIs") == "second" and result.get("live"))
+    return ok, result
+
+@case
+def custom_element_still_connects(context):
+    """A parsed custom element still upgrades and runs connectedCallback."""
+    context.load_page("https://test.local/", "<html><body></body></html>")
+    result = context.eval("""
+      class Flag extends HTMLElement {
+        constructor() { super(); this.n = 0; }
+        connectedCallback() { this.n += 1; }
+      }
+      customElements.define('x-flag', Flag);
+      document.body.innerHTML = '<x-flag id=f></x-flag><div id=d></div>';
+      const el = document.getElementById('f');
+      ({upgraded: el instanceof Flag, connected: el.n, plain: document.getElementById('d').tagName})
+    """)
+    return result.get("upgraded") is True and result.get("connected") == 1 and result.get("plain") == "DIV", result
 
 @case
 def network_timing_v3(context):
