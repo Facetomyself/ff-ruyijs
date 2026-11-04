@@ -228,6 +228,20 @@ def listener_after_minor_gc(context):
 
 
 @case
+def block_layout_keywords(context):
+    """Display, padding and overflow still produce the same used boxes."""
+    context.load_page("https://test.local/", "<html><body></body></html>")
+    result = context.eval("""
+      document.body.innerHTML = '<div id=a style="display:block;width:100px;padding:10px;overflow:hidden">'
+        + '<div id=b style="display:inline">hi</div></div>';
+      const a = document.getElementById('a');
+      const b = document.getElementById('b');
+      ({width: a.offsetWidth, height: a.offsetHeight > b.offsetHeight, hidden: a.scrollHeight >= a.clientHeight})
+    """)
+    return result.get("width") == 120 and result.get("height") is True and result.get("hidden") is True, result
+
+
+@case
 def network_timing_v3(context):
     """Over the Necko transport, a same-origin fetch reports measured phases.
 
