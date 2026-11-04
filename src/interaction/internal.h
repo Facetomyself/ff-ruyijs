@@ -129,14 +129,19 @@ enum EventSlot : uint32_t {
 // the wrapper's lifetime, so its object is borrowed and the Document Model
 // releases the record when the wrapper is collected (T41). `released` marks a
 // borrowed object that died; prune() then removes the record and its listeners.
+struct State;
 struct Target {
   JSObject* object;
   JS::PersistentRootedObject root;
   domain::EventTargetAggregate aggregate;
+  // The State whose map holds this record, and the address currently used as
+  // that map's key. A moving GC updates both through the trace hook.
+  State* realm = nullptr;
+  JSObject* keyed = nullptr;
   const bool owned;
   bool released = false;
   Target(JSContext* cx, JS::HandleObject value, uint64_t id, bool owns)
-      : object(value), root(cx), aggregate(id), owned(owns) {
+      : object(value), keyed(value), root(cx), aggregate(id), owned(owns) {
     if (owns) root.set(value);
   }
   // The object the engine holds right now. An owned object is read back from
@@ -225,11 +230,10 @@ struct State {
   std::vector<std::unique_ptr<Event>> events;
   std::vector<std::shared_ptr<Listener>> listeners;
   std::unordered_map<uint64_t, domain::EventTargetAggregate*> targetMap;
-  // Object address to the live Target. A borrowed node is tenured (its class
-  // finalizes, so it is not nursery-allocated) and compacting GC is off.
-  // A nursery EventTarget does move. RefreshBorrowed rekeys a borrowed record
-  // from the trace, and target() rekeys an owned record on the next lookup.
-  // A hit whose record was released is dropped.
+  // Object address to the live Target. A borrowed node is rekeyed from its
+  // wrapper trace. A nursery EventTarget is rekeyed from its own trace. A
+  // miss means the object is not attached. prune() erases a released record
+  // by the key it stored, and a hit whose record was released is dropped.
   std::unordered_map<JSObject*, Target*> targetByObject;
   std::unordered_map<domain::ListenerId, domain::ListenerCallback> callbacks;
   std::chrono::steady_clock::time_point started = std::chrono::steady_clock::now();
