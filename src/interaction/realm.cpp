@@ -42,15 +42,19 @@ State::~State() {
 Target* State::target(JSObject* object) {
   if (!object) return nullptr;
   auto found = targetByObject.find(object);
-  if (found == targetByObject.end()) return nullptr;
-  Target* value = found->second;
-  if (!value->released && value->live() == object) return value;
-  targetByObject.erase(found);
-  // The address was reused, or a trace moved an owned object. The vector is
-  // the record of what is still live.
+  if (found != targetByObject.end()) {
+    Target* value = found->second;
+    if (!value->released && value->live() == object) return value;
+    targetByObject.erase(found);
+  }
+  // A minor GC moves a nursery object (an EventTarget has no finalizer, so it
+  // is nursery-allocated). The root is updated; the map still has the address
+  // from attach, so the lookup misses and attach would create a second target.
+  // Borrowed node records are rekeyed from the trace. This repairs an owned
+  // record the trace does not see.
   for (auto& item : targets)
     if (!item->released && item->live() == object) {
-      targetByObject.emplace(object, item.get());
+      targetByObject.insert_or_assign(object, item.get());
       return item.get();
     }
   return nullptr;
@@ -180,7 +184,20 @@ bool Realm::AttachBorrowed(JS::HandleObject object, void** record) {
 }
 void Realm::ReleaseBorrowed(void* record) { state_->release(record); }
 void Realm::RefreshBorrowed(void* record, JSObject* object) {
-  if (record) static_cast<Target*>(record)->object = object;
+  if (!record) return;
+  auto* target = static_cast<Target*>(record);
+  JSObject* previous = target->object;
+  target->object = object;
+  // The trace runs on the object's new address. The map is not a GC edge, so
+  // it still keys the record by the address from attach. extract/insert moves
+  // that node without allocating, which a trace hook must not do.
+  if (!previous || previous == object || !object) return;
+  auto& map = state_->targetByObject;
+  auto found = map.find(previous);
+  if (found == map.end() || found->second != target) return;
+  auto node = map.extract(found);
+  node.key() = object;
+  map.insert(std::move(node));
 }
 void Realm::SetPathResolver(PathResolver callback, RetargetResolver retarget, void* context) {
   state_->pathResolver = callback;
