@@ -26,10 +26,12 @@ def case(fn):
     CASES.append(fn)
     return fn
 
+
 @case
 def eval_contract(context):
     context.eval("let base = 6")
     return context.eval("base * 7") == 42 and context.eval("'中文' + '文本'") == "中文文本"
+
 
 @case
 def dom_and_events(context):
@@ -37,12 +39,14 @@ def dom_and_events(context):
                       ".textContent = '改过的文本';</script></body></html>")
     return context.eval("document.getElementById('a').textContent") == "改过的文本"
 
+
 @case
 def python_callback(context):
     seen = []
     context.expose(lambda value: seen.append(value), "record")
     context.eval("record('js->py')")
     return seen == ["js->py"]
+
 
 @case
 def timer_precision_clamped(context):
@@ -52,15 +56,18 @@ def timer_precision_clamped(context):
         return False
     return all(abs(s - round(s)) < 1e-9 for s in samples)
 
+
 @case
 def date_now_clamped(context):
     return all(context.eval("Date.now() % 1") == 0 for _ in range(10))
+
 
 @case
 def performance_time_origin(context):
     origin = context.eval("performance.timeOrigin")
     now = context.eval("Date.now()")
     return isinstance(origin, (int, float)) and abs(now - origin) < 60000
+
 
 @case
 def layout_scrollport(context):
@@ -75,6 +82,7 @@ def layout_scrollport(context):
         return False
     return client in (183, 200)  # with or without the classic scrollbar gutter
 
+
 @case
 def block_layout_keywords(context):
     """Display, padding and overflow still produce the same used boxes."""
@@ -87,12 +95,14 @@ def block_layout_keywords(context):
       ({width: a.offsetWidth, height: a.offsetHeight > b.offsetHeight, hidden: a.scrollHeight >= a.clientHeight})
     """)
     return result.get("width") == 120 and result.get("height") is True and result.get("hidden") is True, result
+
 @case
 def layout_margin_collapse(context):
     context.load_page("https://test.local/", "<html><body style='margin:0'><div style='height:0;margin-top:20px'>"
                       "</div><script>document.body.style.marginTop='0px'</script></body></html>")
     top = context.eval("document.body.firstElementChild.getBoundingClientRect().top")
     return top in (0, 20)
+
 
 @case
 def dom_matrix(context):
@@ -110,6 +120,7 @@ def dom_matrix(context):
     }
     return all(checks.values()), checks
 
+
 @case
 def canvas_skia_pixels(context):
     # 0.2.0: canvas 2D paints through Firefox Skia; check real pixel output.
@@ -119,6 +130,7 @@ def canvas_skia_pixels(context):
     data = context.eval("Array.from(g.getImageData(0, 0, 1, 1).data)")
     # Skia stores premultiplied BGRA; getImageData hands back RGBA.
     return data == [255, 0, 0, 255], data
+
 
 @case
 def canvas_gradient(context):
@@ -131,12 +143,14 @@ def canvas_gradient(context):
     right = context.eval("Array.from(g.getImageData(7, 0, 1, 1).data)")
     return left[0] < 40 and right[0] > 200, [left, right]
 
+
 @case
 def canvas_text_metrics(context):
     context.load_page("https://test.local/", "<html><body><canvas id='c' width='10' height='10'></canvas></body></html>")
     width = context.eval("document.getElementById('c').getContext('2d')"
                          ".measureText('hello world').width")
     return isinstance(width, (int, float)) and width > 0 and width != 100.0, width
+
 
 @case
 def font_serialize_css(context):
@@ -147,6 +161,7 @@ def font_serialize_css(context):
     font = context.eval("g.font")
     lowered = font.lower() if isinstance(font, str) else ""
     return "italic" in lowered and "16" in lowered and "arial" in lowered, font
+
 
 @case
 def custom_element_still_connects(context):
@@ -163,6 +178,7 @@ def custom_element_still_connects(context):
       ({upgraded: el instanceof Flag, connected: el.n, plain: document.getElementById('d').tagName})
     """)
     return result.get("upgraded") is True and result.get("connected") == 1 and result.get("plain") == "DIV", result
+
 @case
 def web_platform_surface(context):
     checks = {
@@ -174,6 +190,7 @@ def web_platform_surface(context):
     }
     return checks["useragent"] and checks["structured"], checks
 
+
 @case
 def geometry_surface(context):
     checks = {
@@ -183,6 +200,7 @@ def geometry_surface(context):
         "inner": isinstance(context.eval("window.innerWidth"), (int, float)),
     }
     return all(checks.values()), checks
+
 
 @case
 def query_list_and_id_index(context):
@@ -213,6 +231,7 @@ def query_list_and_id_index(context):
     ok = (result.get("staticKeeps") and result.get("idMoved") and result.get("firstDup")
           and result.get("secondIs") == "second" and result.get("live"))
     return ok, result
+
 @case
 def advance_determinism(context):
     # The logical clock drives timers; advance() flushes the loop.
@@ -220,6 +239,7 @@ def advance_determinism(context):
     context.eval("let fired = 0; setTimeout(() => fired = 1, 500);")
     context.advance(1000)
     return context.eval("fired") == 1
+
 
 @case
 def listener_after_minor_gc(context):
@@ -265,6 +285,7 @@ def listener_after_minor_gc(context):
         return False, str(error)[:200]
     return fired is True
 
+
 @case
 def computed_style_invalidation(context):
     """A cached computed style must change after style, class, attribute and tree edits."""
@@ -296,6 +317,7 @@ def computed_style_invalidation(context):
     ok = (result.get("same") and result.get("style") and result.get("klass")
           and result.get("attr") and result.get("tree"))
     return ok, result
+
 
 @case
 def target_survives_node_rebuild(context):
@@ -329,6 +351,7 @@ def target_survives_node_rebuild(context):
         return False, str(error)[:200]
     return fired is True
 
+
 @case
 def element_style_identity(context):
     """element.style is one object, and writing it updates the style attribute."""
@@ -344,6 +367,7 @@ def element_style_identity(context):
         cleared: !el.getAttribute('style'), text})
     """)
     return result.get("same") and result.get("wrote") and result.get("cleared"), result
+
 
 @case
 def network_timing_v3(context):
