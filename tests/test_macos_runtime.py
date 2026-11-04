@@ -228,23 +228,6 @@ def listener_after_minor_gc(context):
 
 
 @case
-def element_style_identity(context):
-    """element.style is one object, and writing it updates the style attribute."""
-    context.load_page("https://test.local/", "<html><body></body></html>")
-    result = context.eval("""
-      const el = document.createElement('div');
-      document.body.appendChild(el);
-      const style = el.style;
-      style.cssText = 'color: red; margin-top: 4px';
-      const text = el.getAttribute('style') || '';
-      style.cssText = '';
-      ({same: style === el.style, wrote: text.includes('color') && text.includes('red'),
-        cleared: !el.getAttribute('style'), text})
-    """)
-    return result.get("same") and result.get("wrote") and result.get("cleared"), result
-
-
-@case
 def computed_style_invalidation(context):
     """A cached computed style must change after style, class, attribute and tree edits."""
     context.load_page("https://test.local/", "<html><body></body></html>")
@@ -308,6 +291,23 @@ def target_survives_node_rebuild(context):
     except Exception as error:
         return False, str(error)[:200]
     return fired is True
+
+
+@case
+def element_style_identity(context):
+    """element.style is one object, and writing it updates the style attribute."""
+    context.load_page("https://test.local/", "<html><body></body></html>")
+    result = context.eval("""
+      const el = document.createElement('div');
+      document.body.appendChild(el);
+      const style = el.style;
+      style.cssText = 'color: red; margin-top: 4px';
+      const text = el.getAttribute('style') || '';
+      style.cssText = '';
+      ({same: style === el.style, wrote: text.includes('color') && text.includes('red'),
+        cleared: !el.getAttribute('style'), text})
+    """)
+    return result.get("same") and result.get("wrote") and result.get("cleared"), result
 
 
 @case
