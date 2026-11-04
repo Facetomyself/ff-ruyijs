@@ -241,6 +241,38 @@ def large_inner_html_keeps_identity(context):
     """)
     return result.get("count") == 300 and result.get("id") == "n10" and result.get("title") == "t", result
 
+@case
+def target_survives_node_rebuild(context):
+    """Replacing a large wrapped tree must not drop an unrelated EventTarget."""
+    context.load_page("https://test.local/", "<html><body></body></html>")
+    context.eval("""
+      globalThis.__target = new EventTarget();
+      let n = 0;
+      __target.addEventListener('ping', () => { n++; });
+      globalThis.__fires = () => n;
+      const build = () => {
+        const junk = [];
+        for (let i = 0; i < 1500; i++) junk.push(document.createElement('div'));
+        document.body.replaceChildren(...junk);
+      };
+      build();
+    """)
+    context.collect_garbage()
+    context.eval("document.body.replaceChildren()")
+    context.collect_garbage()
+    try:
+        fired = context.eval("""
+          __target.dispatchEvent(new Event('ping'));
+          const node = document.createElement('div');
+          let seen = 0;
+          node.addEventListener('ping', () => { seen++; });
+          node.dispatchEvent(new Event('ping'));
+          __fires() === 1 && seen === 1
+        """)
+    except Exception as error:
+        return False, str(error)[:200]
+    return fired is True
+
 
 @case
 def network_timing_v3(context):

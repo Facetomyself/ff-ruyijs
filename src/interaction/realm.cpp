@@ -14,7 +14,40 @@ static thread_local uint64_t nextTarget = 0;
 static thread_local unsigned boundMonitors = 0;
 bool MonitorBound() { return boundMonitors != 0; }
 const JSClass kEventClass = {"Event", JSCLASS_HAS_RESERVED_SLOTS(kEventSlotCount)};
-const JSClass kTargetClass = {"EventTarget", 0};
+// Moves one record's map node onto `now` without allocating. A trace hook
+// runs during collection, so this must not grow the map.
+static void Retarget(State& state, Target* target, JSObject* previous, JSObject* now) {
+  target->object = now;
+  if (!now) return;
+  auto& map = state.targetByObject;
+  if (previous && previous != now) {
+    auto found = map.find(previous);
+    if (found != map.end() && found->second == target) {
+      auto node = map.extract(found);
+      node.key() = now;
+      auto inserted = map.insert(std::move(node));
+      if (!inserted.inserted && inserted.node) {
+        inserted.node.key() = previous;
+        map.insert(std::move(inserted.node));
+        return;
+      }
+      target->keyed = now;
+      return;
+    }
+  }
+  if (map.find(now) == map.end()) map.emplace(now, target);
+  target->keyed = now;
+}
+static void TraceTarget(JSTracer*, JSObject* object) {
+  const JS::Value slot = JS::GetReservedSlot(object, 0);
+  if (slot.isUndefined()) return;
+  auto* target = static_cast<Target*>(slot.toPrivate());
+  if (!target || !target->realm || target->released) return;
+  Retarget(*target->realm, target, target->keyed ? target->keyed : target->object, object);
+}
+const JSClassOps kTargetOps = {nullptr, nullptr, nullptr, nullptr, nullptr, nullptr,
+                               nullptr, nullptr, nullptr, TraceTarget};
+const JSClass kTargetClass = {"EventTarget", JSCLASS_HAS_RESERVED_SLOTS(1), &kTargetOps};
 State::State(JSContext* context, JS::HandleObject global)
     : cx(context), previous(activeState), page(context, global),
       targetPrototype(context), eventPrototype(context), trustedGetter(context),
@@ -42,21 +75,10 @@ State::~State() {
 Target* State::target(JSObject* object) {
   if (!object) return nullptr;
   auto found = targetByObject.find(object);
-  if (found != targetByObject.end()) {
-    Target* value = found->second;
-    if (!value->released && value->live() == object) return value;
-    targetByObject.erase(found);
-  }
-  // A minor GC moves a nursery object (an EventTarget has no finalizer, so it
-  // is nursery-allocated). The root is updated; the map still has the address
-  // from attach, so the lookup misses and attach would create a second target.
-  // Borrowed node records are rekeyed from the trace. This repairs an owned
-  // record the trace does not see.
-  for (auto& item : targets)
-    if (!item->released && item->live() == object) {
-      targetByObject.insert_or_assign(object, item.get());
-      return item.get();
-    }
+  if (found == targetByObject.end()) return nullptr;
+  Target* value = found->second;
+  if (!value->released && value->live() == object) return value;
+  targetByObject.erase(found);
   return nullptr;
 }
 Event* State::event(JSObject* object) {
@@ -103,8 +125,15 @@ bool State::attach(JS::HandleObject object, bool owns, void** record) {
   }
   if (targets.size() >= kTargetLimit) return Error(cx, "RangeError", "EventTarget limit exceeded");
   auto value = std::make_unique<Target>(cx, object, ++nextTarget, owns);
+  Target* raw = value.get();
+  raw->realm = this;
+  raw->keyed = object;
+  // The slot is set before the map insert so a collection during that insert
+  // can retarget this record. Only EventTarget instances use this class.
+  if (owns && JS::GetClass(object) == &kTargetClass)
+    JS::SetReservedSlot(object, 0, JS::PrivateValue(raw));
   targetMap.emplace(value->aggregate.id(), &value->aggregate);
-  targetByObject[object] = value.get();
+  targetByObject[object] = raw;
   if (record) *record = value.get();
   targets.push_back(std::move(value));
   return true;
@@ -121,9 +150,11 @@ void State::prune() {
     if ((*it)->released) {
       Target* raw = it->get();
       targetMap.erase(raw->aggregate.id());
-      for (auto mapped = targetByObject.begin(); mapped != targetByObject.end();)
-        if (mapped->second == raw) mapped = targetByObject.erase(mapped);
-        else ++mapped;
+      if (JSObject* key = raw->keyed ? raw->keyed : raw->object) {
+        auto mapped = targetByObject.find(key);
+        if (mapped != targetByObject.end() && mapped->second == raw)
+          targetByObject.erase(mapped);
+      }
       it = targets.erase(it);
     } else {
       ++it;
@@ -184,20 +215,9 @@ bool Realm::AttachBorrowed(JS::HandleObject object, void** record) {
 }
 void Realm::ReleaseBorrowed(void* record) { state_->release(record); }
 void Realm::RefreshBorrowed(void* record, JSObject* object) {
-  if (!record) return;
+  if (!record || !state_) return;
   auto* target = static_cast<Target*>(record);
-  JSObject* previous = target->object;
-  target->object = object;
-  // The trace runs on the object's new address. The map is not a GC edge, so
-  // it still keys the record by the address from attach. extract/insert moves
-  // that node without allocating, which a trace hook must not do.
-  if (!previous || previous == object || !object) return;
-  auto& map = state_->targetByObject;
-  auto found = map.find(previous);
-  if (found == map.end() || found->second != target) return;
-  auto node = map.extract(found);
-  node.key() = object;
-  map.insert(std::move(node));
+  Retarget(*state_, target, target->keyed ? target->keyed : target->object, object);
 }
 void Realm::SetPathResolver(PathResolver callback, RetargetResolver retarget, void* context) {
   state_->pathResolver = callback;
