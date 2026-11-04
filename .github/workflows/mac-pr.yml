@@ -1,12 +1,13 @@
-# Minimal CI for the macOS maintainer line.
+# Minimal CI for pull requests into main.
+# release/macos is a fast-forward pointer of main, not a pull-request target.
 # Does not build donor Firefox / dist/js; that stays on real macOS hardware.
 name: Mac PR Guard
 
 on:
   push:
-    branches: [release/macos]
+    branches: [main]
   pull_request:
-    branches: [release/macos]
+    branches: [main]
   workflow_dispatch:
 
 permissions:

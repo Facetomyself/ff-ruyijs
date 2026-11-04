@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""Minimal guardrails for PRs on the macOS maintainer line.
+"""Minimal guardrails for pull requests into main.
 
 Checks only documentation presence and coarse Apple-header guards.
 Does not build native code or touch donor trees.
+Branch rules are docs/branching.md. docs/BRANCHES.md is the retired-ledger pointer.
 """
 
 from __future__ import annotations
@@ -14,6 +15,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 
 REQUIRED_PATHS = (
+    "docs/branching.md",
+    "docs/branching.zh-CN.md",
+    "docs/BRANCHES.md",
+    "docs/BRANCHES.zh-CN.md",
     "docs/macos.md",
     "docs/macos-baseline.md",
     "docs/macos-gaps.md",

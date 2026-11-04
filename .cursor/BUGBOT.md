@@ -1,6 +1,12 @@
-# Bugbot rules — Facetomyself/ff-ruyijs (macOS maintainer line)
+# Bugbot rules — Facetomyself/ff-ruyijs
 
-Review PRs with the macOS maintainer baseline in mind (`docs/macos-baseline.md`). Prefer real defects over style nits.
+Review pull requests against `docs/branching.md` and the macOS maintainer baseline in `docs/macos-baseline.md`. Prefer real defects over style nits. Pull requests land on `main`.
+
+## Branches
+
+- Flag a pull request whose base is `release/macos` or `tls/necko-core-arm64`, or text that says a fix lands on `release/macos` first. Those two names are fast-forward pointers of `main`. They are not places to commit.
+- Flag a request to keep a SHA ledger in `docs/BRANCHES.md` or `docs/BRANCHES.zh-CN.md`, or to push a documentation commit onto every `origin` branch. `docs/branching.md` is the branch rules. `docs/BRANCHES.md` only points there.
+- An upstream update belongs on `sync/<sha>`, cut from `main`, and should not mix feature work. A change meant for the published project belongs on `upstream/<feature>`, cut from `upstream/main`, and is not merged on this fork.
 
 ## Platform / Windows safety
 
@@ -25,6 +31,6 @@ Review PRs with the macOS maintainer baseline in mind (`docs/macos-baseline.md`)
 
 ## Process
 
-- Prefer one concern per PR. Upstream sync should not mix feature work.
+- Prefer one concern per PR.
 - If the PR needs a real macOS arm64 build/donor and has no hardware verification notes, call that out as a residual risk (do not block on style).
 - Do not suggest Playwright/Puppeteer/Selenium or a visible browser as replacements for ruyijs.
