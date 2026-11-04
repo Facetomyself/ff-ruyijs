@@ -33,7 +33,7 @@ from urllib.parse import parse_qs
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.dont_write_bytecode = True
-if (ROOT / "dist" / "js.exe").is_file() or os.environ.get("RUYIJS_SHELL"):
+if (ROOT / "dist" / "js.exe").is_file() or (ROOT / "dist" / "js").is_file() or os.environ.get("RUYIJS_SHELL"):
     sys.path.insert(0, str(ROOT / "python"))
 from ruyijs import Context, JSError  # noqa: E402
 
@@ -60,14 +60,17 @@ def auto_proxy():
         return None
 
 
-def main():
+def main(argv=None):
+    # A Chinese Windows console defaults to GBK; the help and log lines are UTF-8.
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8")
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     proxy_group = parser.add_mutually_exclusive_group()
     proxy_group.add_argument("--proxy", help="HTTP(S) 代理；默认自动检测")
     proxy_group.add_argument("--direct", action="store_true", help="不使用代理直连")
     parser.add_argument("--output", type=Path, default=Path(__file__).with_name("datadome_result.json"),
                         help="JSON 结果输出路径")
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     selected = None if args.direct else (args.proxy or auto_proxy())
 
     report = {"status": "error", "proxy": selected or "direct", "steps": [], "scriptErrors": [],

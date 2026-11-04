@@ -1,5 +1,8 @@
 #pragma once
 
+#include <cstdint>
+#include <cstdlib>
+#include <set>
 #include "domain/shared/aggregate_root.h"
 #include "domain/shared/domain_event.h"
 #include "domain/styling/css_rule_value.h"
@@ -74,6 +77,11 @@ public:
 
     Type type() const noexcept { return type_; }
     const CssSelector& selector() const noexcept { return selector_; }
+    // The rule's cascade layer (CssMediaEnvironment::layers index); kUnlayered
+    // for a rule outside every layer, which beats all layers.
+    static constexpr uint32_t kUnlayered = 0xffffffffu;
+    uint32_t layer() const noexcept { return layer_; }
+    void set_layer(uint32_t layer) noexcept { layer_ = layer; }
 
     // Style rule properties
     const std::vector<CssProperty>& properties() const noexcept { return properties_; }
@@ -118,6 +126,7 @@ public:
 private:
     Type type_;
     CssSelector selector_;
+    uint32_t layer_ = kUnlayered;
     std::vector<CssProperty> properties_;
 };
 
@@ -130,6 +139,9 @@ public:
     double computed_font_size = 16;
     double computed_line_height = 0;
     bool font_computed = false, line_height_computed = false;
+    // An explicit `inherit` on a property that does not inherit: this style
+    // reads a value its parent's StyleResolutionService::child_inputs omits.
+    bool inherits_reset = false;
     unsigned specified_margin_mask = 0, specified_border_mask = 0, specified_padding_mask = 0;
 
     using Properties = std::map<std::string, CssProperty>;
@@ -229,6 +241,117 @@ private:
 };
 
 /// Aggregate Root: CSSStyleSheet
+// Cascade order of declared layers (CSS Cascade 5 §6.4.3): siblings rank in
+// declaration order and a layer's own rules come after all of its sublayers.
+// `names` lists dotted layer names in order of first declaration; the result
+// maps each index to its rank (higher wins for normal declarations).
+inline std::vector<uint32_t> CssLayerOrder(const std::vector<std::string>& names) {
+    struct Node { std::vector<size_t> children; };
+    std::vector<Node> nodes(names.size() + 1);  // nodes[names.size()] is the root
+    std::vector<uint32_t> rank(names.size(), 0);
+    for (size_t i = 0; i < names.size(); ++i) {
+        const auto dot = names[i].rfind('.');
+        size_t parent = names.size();
+        if (dot != std::string::npos) {
+            const std::string prefix = names[i].substr(0, dot);
+            for (size_t j = 0; j < names.size(); ++j) if (names[j] == prefix) { parent = j; break; }
+        }
+        nodes[parent].children.push_back(i);
+    }
+    uint32_t next = 0;
+    std::vector<std::pair<size_t, size_t>> stack{{names.size(), 0}};
+    while (!stack.empty()) {
+        auto& [node, child] = stack.back();
+        if (child < nodes[node].children.size()) {
+            const size_t next_node = nodes[node].children[child++];
+            stack.push_back({next_node, 0});
+            continue;
+        }
+        if (node < names.size()) rank[node] = next++;
+        stack.pop_back();
+    }
+    return rank;
+}
+
+// Flow-relative properties in the horizontal-tb, ltr writing mode (the only
+// one this layout runs): block-start/end are top/bottom and inline-start/end
+// are left/right (CSS Logical Properties §4). A logical shorthand splits into
+// its two sides by the 1-2 value rule; border-inline-*/border-block-* side
+// shorthands become the physical side shorthand, expanded by CssBoxExpand.
+// Appends the physical declarations of `name: value` to `out` and returns
+// true when `name` is flow-relative.
+inline bool CssPhysicalDeclarations(const std::string& name, const std::string& value,
+                                    std::vector<std::pair<std::string, std::string>>* out) {
+    struct Map { const char* logical; const char* first; const char* second; };
+    static const Map kPairs[] = {
+        {"padding-inline", "padding-left", "padding-right"},
+        {"padding-block", "padding-top", "padding-bottom"},
+        {"margin-inline", "margin-left", "margin-right"},
+        {"margin-block", "margin-top", "margin-bottom"},
+        {"inset-inline", "left", "right"},
+        {"inset-block", "top", "bottom"},
+        {"scroll-padding-inline", "scroll-padding-left", "scroll-padding-right"},
+        {"scroll-padding-block", "scroll-padding-top", "scroll-padding-bottom"},
+        {"scroll-margin-inline", "scroll-margin-left", "scroll-margin-right"},
+        {"scroll-margin-block", "scroll-margin-top", "scroll-margin-bottom"},
+        {"border-inline-width", "border-left-width", "border-right-width"},
+        {"border-block-width", "border-top-width", "border-bottom-width"},
+        {"border-inline-style", "border-left-style", "border-right-style"},
+        {"border-block-style", "border-top-style", "border-bottom-style"},
+        {"border-inline-color", "border-left-color", "border-right-color"},
+        {"border-block-color", "border-top-color", "border-bottom-color"},
+    };
+    for (const auto& pair : kPairs) {
+        if (name != pair.logical) continue;
+        std::vector<std::string> parts;
+        int depth = 0;
+        std::string current;
+        for (char c : value) {
+            if (c == '(') ++depth;
+            if (c == ')') --depth;
+            if (depth == 0 && std::isspace(static_cast<unsigned char>(c))) {
+                if (!current.empty()) { parts.push_back(current); current.clear(); }
+                continue;
+            }
+            current.push_back(c);
+        }
+        if (!current.empty()) parts.push_back(current);
+        if (parts.empty() || parts.size() > 2) return true;
+        out->push_back({pair.first, parts[0]});
+        out->push_back({pair.second, parts.size() > 1 ? parts[1] : parts[0]});
+        return true;
+    }
+    static const std::pair<const char*, const char*> kSides[] = {
+        {"inline-start", "left"}, {"inline-end", "right"}, {"block-start", "top"}, {"block-end", "bottom"}};
+    static const char* const kPrefixes[] = {"padding-", "margin-", "inset-", "scroll-padding-",
+                                            "scroll-margin-", "border-"};
+    for (const char* prefix : kPrefixes) {
+        const std::string p(prefix);
+        if (name.compare(0, p.size(), p) != 0) continue;
+        const std::string rest = name.substr(p.size());
+        for (const auto& [logical, physical] : kSides) {
+            const std::string side(logical);
+            if (rest == side) {
+                if (p == "border-") {
+                    std::vector<CssDeclarationValue> expanded;
+                    if (CssBoxExpand(std::string("border-") + physical, value, false, &expanded))
+                        for (const auto& row : expanded) out->push_back({row.name, row.value});
+                } else {
+                    out->push_back({p == "inset-" ? std::string(physical) : p + physical, value});
+                }
+                return true;
+            }
+            if (p == "border-" && rest.compare(0, side.size() + 1, side + "-") == 0) {
+                out->push_back({p + physical + rest.substr(side.size()), value});
+                return true;
+            }
+        }
+    }
+    if (name == "inset-inline-start" || name == "inset-inline-end" || name == "inset-block-start" ||
+        name == "inset-block-end") return true;
+    return false;
+}
+
 class StyleSheetAggregate : public shared::AggregateRoot<StyleSheetId> {
 public:
     explicit StyleSheetAggregate(StyleSheetId id, std::string href = "")
@@ -268,6 +391,11 @@ private:
     std::string href_;
     bool disabled_ = false;
     std::vector<CssRule> rules_;
+public:
+    // The layer names rule().layer() indexes (shared by one cascade read).
+    std::shared_ptr<const std::vector<std::string>> layers;
+    // Registered custom properties (shared by one cascade read).
+    std::shared_ptr<const std::map<std::string, std::pair<bool, std::string>>> registered;
 };
 
 // ---------------------------------------------------------------------------
@@ -388,6 +516,56 @@ public:
             candidate.order = order++;
             winners["display"] = candidate;
         }
+        {
+            // nsStyleFont::mLanguage: the element's own lang (xml:lang first, as
+            // nsIContent::GetLang reads it) as the internal inherited -x-lang.
+            auto lang = element.attributes.find("xml:lang");
+            if (lang == element.attributes.end()) lang = element.attributes.find("lang");
+            if (lang != element.attributes.end()) {
+                Candidate candidate;
+                candidate.value = detail::TrimAscii(lang->second);
+                if (candidate.value.empty()) candidate.value = "-x-none";
+                candidate.order = order++;
+                Consider(&winners, "-x-lang", candidate);
+            }
+        }
+        if (!element.html) {
+            // SVG presentation attributes (SVGElement::UpdateMappedDeclarationBlock):
+            // author-level declarations below every author rule, so any matching
+            // selector, even `*`, overrides them by source order.
+            static const std::set<std::string> kPresentation = {
+                "alignment-baseline", "baseline-shift", "clip-path", "clip-rule", "color",
+                "color-interpolation", "color-interpolation-filters", "cursor", "direction",
+                "display", "dominant-baseline", "fill", "fill-opacity", "fill-rule", "filter",
+                "flood-color", "flood-opacity", "font-family", "font-size", "font-size-adjust",
+                "font-stretch", "font-style", "font-variant", "font-weight", "image-rendering",
+                "letter-spacing", "lighting-color", "marker-end", "marker-mid", "marker-start",
+                "mask", "opacity", "overflow", "paint-order", "pointer-events", "shape-rendering",
+                "stop-color", "stop-opacity", "stroke", "stroke-dasharray", "stroke-dashoffset",
+                "stroke-linecap", "stroke-linejoin", "stroke-miterlimit", "stroke-opacity",
+                "stroke-width", "text-anchor", "text-decoration", "text-rendering", "unicode-bidi",
+                "vector-effect", "visibility", "word-spacing", "writing-mode"};
+            for (const auto& attribute : element.attributes) {
+                if (!kPresentation.count(attribute.first)) continue;
+                std::string value = detail::TrimAscii(attribute.second);
+                if (value.empty()) continue;
+                // SVG parses presentation lengths in quirks mode: a bare number is px.
+                if (attribute.first == "font-size" || attribute.first == "stroke-width" ||
+                    attribute.first == "letter-spacing" || attribute.first == "word-spacing") {
+                    char* end = nullptr;
+                    std::strtod(value.c_str(), &end);
+                    if (end && end != value.c_str() && *end == 0) value += "px";
+                }
+                Candidate candidate;
+                candidate.value = value;
+                candidate.order = order++;
+                Consider(&winners, attribute.first, candidate);
+            }
+        }
+        std::vector<std::pair<std::string, std::string>> physical;
+        std::vector<uint32_t> layer_order;
+        for (const auto* sheet : sheets)
+            if (sheet && sheet->layers) { layer_order = CssLayerOrder(*sheet->layers); break; }
         for (const auto* sheet : sheets) {
             if (!sheet || sheet->disabled()) continue;
             // Only the buckets this element can match, visited in source
@@ -411,27 +589,40 @@ public:
                 {
                     const ParsedSelector& selector = (*index.parsed[entry.first])[entry.second];
                     if (!selector.matches(element)) continue;
-                    for (const auto& prop : rule.properties()) {
+                    for (const auto& authored : rule.properties()) {
+                      physical.clear();
+                      if (!CssPhysicalDeclarations(authored.name, authored.value, &physical))
+                        physical.push_back({authored.name, authored.value});
+                      for (const auto& [physical_name, physical_value] : physical) {
+                        CssProperty prop{physical_name, physical_value, authored.important};
                         Candidate candidate;
                         candidate.value = prop.value;
                         candidate.important = prop.important;
                         candidate.a = selector.specificity_a();
                         candidate.b = selector.specificity_b();
                         candidate.c = selector.specificity_c();
+                        candidate.layer = rule.layer() < layer_order.size() ? layer_order[rule.layer()]
+                                                                            : CssRule::kUnlayered;
                         candidate.order = order++;
                         Consider(&winners, prop.name, candidate);
+                      }
                     }
                 }
             }
         }
         if (!element.inline_style.empty()) {
             for (const auto& entry : CssDeclarations(element.inline_style)) {
-                Candidate candidate;
-                candidate.value = entry.value;
-                candidate.important = entry.important;
-                candidate.inline_origin = true;
-                candidate.order = order++;
-                Consider(&winners, entry.name, candidate);
+                physical.clear();
+                if (!CssPhysicalDeclarations(entry.name, entry.value, &physical))
+                    physical.push_back({entry.name, entry.value});
+                for (const auto& [physical_name, physical_value] : physical) {
+                    Candidate candidate;
+                    candidate.value = physical_value;
+                    candidate.important = entry.important;
+                    candidate.inline_origin = true;
+                    candidate.order = order++;
+                    Consider(&winners, physical_name, candidate);
+                }
             }
         }
         auto parent = element.related('>');
@@ -456,6 +647,7 @@ public:
             }
             if (keyword == "inherit" || keyword == "unset" || keyword == "revert" || keyword == "revert-layer") {
                 bool from_parent = keyword == "inherit" || is_inherited(name);
+                if (keyword == "inherit" && !is_inherited(name)) result.inherits_reset = true;
                 if (from_parent && has_parent && parent_style.has_property(name))
                     result.set_property(name, parent_style.get_property_value(name), false);
                 else if (StyleDeclaration::custom(name))
@@ -474,6 +666,19 @@ public:
             if (result.all().count(entry.first)) continue;
             result.set_property(entry.first, entry.second.value, entry.second.important);
         }
+        // css-properties-values §2: a registered custom property that does
+        // not inherit restarts from its initial value on every element, and
+        // one with no declared or inherited value takes its initial value.
+        for (const auto* sheet : sheets) {
+            if (!sheet || !sheet->registered) continue;
+            for (const auto& [name, registration] : *sheet->registered) {
+                if (winners.count(name)) continue;
+                if (!registration.first) result.remove_property(name);
+                if (!result.has_property(name) && !registration.second.empty())
+                    result.set_property(name, registration.second, false);
+            }
+            break;
+        }
         std::map<std::string, uint64_t> declared;
         for (const auto& entry : winners) declared[entry.first] = entry.second.order;
         CssResolveVariables(result, declared,
@@ -489,6 +694,7 @@ public:
             if (winners.count(std::string("padding-") + side)) result.specified_padding_mask |= 1u << side_index;
             ++side_index;
         }
+        Blockify(result, has_parent ? &parent_style : nullptr);
         CssComputeBox(result, result.root_font_size);
         CssComputeOverflow(result);
         if (element.key) shared->computed.emplace(identity, result);
@@ -516,14 +722,53 @@ public:
         // Custom properties are inherited (CSS Variables 1 §2).
         if (property.size() > 2 && property.compare(0, 2, "--") == 0) return true;
         for (const auto& font : CssFontDefaults()) if (font.name == property) return true;
+        const auto& names = inherited_names();
+        return std::find(names.begin(), names.end(), property) != names.end();
+    }
+
+    /// What compute_style reads from a parent's computed style, as one hash:
+    /// the inherited properties (inherited_names, the font defaults and the
+    /// custom properties), display (Blockify), and the computed font size, line
+    /// height and root font size with their flags (CssComputeFont). A child
+    /// whose own declarations did not change keeps its computed style while
+    /// this holds, unless it is inherits_reset: as Gecko, a change to a
+    /// parent's reset properties alone does not restyle its children.
+    static uint64_t child_inputs(const StyleDeclaration& style) {
+        uint64_t hash = 1469598103934665603ull;
+        const auto mix = [&hash](const void* data, size_t size) {
+            const auto* bytes = static_cast<const unsigned char*>(data);
+            for (size_t i = 0; i < size; ++i) { hash ^= bytes[i]; hash *= 1099511628211ull; }
+        };
+        const auto text = [&mix](const std::string& value) { mix(value.data(), value.size()); mix("\x1f", 1); };
+        const auto property = [&](const std::string& name) {
+            text(name);
+            text(style.has_property(name) ? style.get_property_value(name) : std::string("\x1e"));
+        };
+        for (const auto& name : inherited_names()) property(name);
+        for (const auto& font : CssFontDefaults()) property(font.name);
+        property("display");
+        for (const auto& [name, value] : style.customs()) { text(name); text(value.value); }
+        const double numbers[] = {style.computed_font_size, style.computed_line_height, style.root_font_size};
+        mix(numbers, sizeof numbers);
+        const unsigned char flags[] = {style.font_computed, style.line_height_computed};
+        mix(flags, sizeof flags);
+        return hash;
+    }
+
+    /// The properties an undeclared value inherits besides custom properties
+    /// and the font defaults (is_inherited).
+    static const std::vector<std::string>& inherited_names() {
         static const std::vector<std::string> names = {
-            "color", "font-family", "font-size", "font-style", "font-variant",
+            "-x-lang", "color", "font-family", "font-size", "font-style", "font-variant",
             "font-weight", "line-height", "letter-spacing", "word-spacing", "text-align",
             "text-indent", "text-transform", "white-space", "visibility", "cursor",
             "direction", "list-style", "list-style-type", "list-style-position",
             "list-style-image", "quotes", "border-collapse", "border-spacing",
-            "caption-side", "empty-cells", "orphans", "widows"};
-        return std::find(names.begin(), names.end(), property) != names.end();
+            "caption-side", "empty-cells", "orphans", "widows", "text-rendering",
+            "accent-color", "color-scheme", "forced-color-adjust", "hyphens",
+            "image-rendering", "paint-order", "text-wrap", "overflow-wrap",
+            "font-variant-numeric"};
+        return names;
     }
 
     /// The user-agent default display keyword for an HTML tag. This is the UA
@@ -538,9 +783,11 @@ public:
         static const std::vector<std::string> none = {
             "head", "title", "meta", "link", "style", "script", "base", "template",
             "param", "source", "track", "col", "colgroup"};
+        // html.css: form controls are inline-block; replaced embedded content
+        // (img, canvas, video, audio, object, embed, iframe) keeps display:
+        // inline and is laid out as an atomic inline by the replaced path.
         static const std::vector<std::string> inline_block = {
-            "input", "button", "select", "textarea", "img", "canvas", "video",
-            "audio", "object", "embed"};
+            "input", "button", "select", "textarea"};
         if (std::find(block.begin(), block.end(), name) != block.end()) return "block";
         if (std::find(none.begin(), none.end(), name) != none.end()) return "none";
         if (std::find(inline_block.begin(), inline_block.end(), name) != inline_block.end())
@@ -555,17 +802,50 @@ public:
     }
 
 private:
+    // CSS Display §2.7 (Servo StyleAdjuster::blockify_if_necessary): the root
+    // element, a float, an absolutely positioned box and a flex or grid item
+    // compute to the block-level form of their display.
+    static void Blockify(StyleDeclaration& result, const StyleDeclaration* parent) {
+        const std::string display = result.has_property("display")
+            ? detail::LowerAscii(result.get_property_value("display")) : std::string("inline");
+        bool blockify = parent == nullptr;
+        const auto position = result.has_property("position") ? result.get_property_value("position") : "";
+        const auto floating = result.has_property("float") ? result.get_property_value("float") : "";
+        if (position == "absolute" || position == "fixed") blockify = true;
+        if (!floating.empty() && floating != "none" && position != "absolute" && position != "fixed") blockify = true;
+        if (parent && parent->has_property("display")) {
+            const auto outer = detail::LowerAscii(parent->get_property_value("display"));
+            if (outer == "flex" || outer == "inline-flex" || outer == "grid" || outer == "inline-grid")
+                blockify = true;
+        }
+        if (!blockify || display == "none" || display == "contents") return;
+        static const std::map<std::string, std::string> kBlock = {
+            {"inline", "block"}, {"inline-block", "block"}, {"run-in", "block"},
+            {"inline-flex", "flex"}, {"inline-grid", "grid"}, {"inline-table", "table"},
+            {"table-row-group", "block"}, {"table-column", "block"}, {"table-column-group", "block"},
+            {"table-header-group", "block"}, {"table-footer-group", "block"}, {"table-row", "block"},
+            {"table-cell", "block"}, {"table-caption", "block"},
+            {"-webkit-inline-box", "-webkit-box"}};
+        const auto found = kBlock.find(display);
+        if (found != kBlock.end())
+            result.set_property("display", found->second, result.get_property_priority("display"));
+    }
     struct Candidate {
         std::string value;
         bool important = false;
         bool inline_origin = false;
         int a = 0, b = 0, c = 0;
+        uint32_t layer = CssRule::kUnlayered;
         uint64_t order = 0;
     };
 
     static bool Beats(const Candidate& candidate, const Candidate& current) {
         if (candidate.important != current.important) return candidate.important;
         if (candidate.inline_origin != current.inline_origin) return candidate.inline_origin;
+        // Cascade layers: normal declarations rank later layers (and
+        // unlayered rules) higher; important declarations reverse that.
+        if (candidate.layer != current.layer)
+            return candidate.important ? candidate.layer < current.layer : candidate.layer > current.layer;
         if (candidate.a != current.a) return candidate.a > current.a;
         if (candidate.b != current.b) return candidate.b > current.b;
         if (candidate.c != current.c) return candidate.c > current.c;
@@ -579,7 +859,8 @@ private:
     }
 
     static const std::map<std::string, std::string>& InitialValues() {
-        static const std::map<std::string, std::string> table = [] {
+        // Per session (thread): initial_values() rewrites font-family in place.
+        thread_local std::map<std::string, std::string> table = [] {
           std::map<std::string, std::string> values = {
             {"display", "inline"}, {"color", "rgb(0, 0, 0)"},
             {"background-color", "rgba(0, 0, 0, 0)"}, {"background-image", "none"},
@@ -606,7 +887,21 @@ private:
             {"flex-grow", "0"}, {"flex-shrink", "1"}, {"flex-basis", "auto"},
             {"flex-direction", "row"}, {"flex-wrap", "nowrap"}, {"order", "0"},
             {"align-items", "normal"}, {"align-self", "auto"}, {"align-content", "normal"},
-            {"justify-content", "normal"}, {"row-gap", "normal"}, {"column-gap", "normal"}};
+            {"justify-content", "normal"}, {"row-gap", "normal"}, {"column-gap", "normal"},
+            {"place-items", "normal"}, {"text-wrap", "wrap"}, {"overflow-wrap", "normal"},
+            {"user-select", "auto"}, {"touch-action", "auto"}, {"isolation", "auto"},
+            {"mix-blend-mode", "normal"}, {"filter", "none"}, {"backdrop-filter", "none"},
+            {"mask-image", "none"}, {"clip-path", "none"}, {"paint-order", "normal"},
+            {"will-change", "auto"}, {"contain", "none"}, {"aspect-ratio", "auto"},
+            {"scale", "none"}, {"rotate", "none"}, {"translate", "none"},
+            {"accent-color", "auto"}, {"color-scheme", "normal"},
+            {"forced-color-adjust", "auto"}, {"scrollbar-gutter", "auto"},
+            {"scrollbar-width", "auto"}, {"overscroll-behavior", "auto"},
+            {"hyphens", "manual"}, {"image-rendering", "auto"},
+            {"text-underline-offset", "auto"}, {"text-decoration-thickness", "auto"},
+            {"font-variant-numeric", "normal"}, {"field-sizing", "content"},
+            {"forced-color-adjust", "auto"}, {"shape-outside", "none"},
+            {"background-blend-mode", "normal"}, {"container-type", "normal"}};
           for (const auto& font : CssFontDefaults()) values.try_emplace(font.name, font.value);
           return values;
         }();

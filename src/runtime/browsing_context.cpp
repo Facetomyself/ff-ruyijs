@@ -1,6 +1,8 @@
 #include "runtime/secure_exposure.h"
 #include "runtime/user_activation_ports.h"
 #include "runtime/browsing_context.h"
+#include "execution_scheduling/realm.h"
+#include "web_styling/computed_source.h"
 #include "document_model/exception.h"
 #include "runtime/adopted_ports.h"
 #include "runtime/style_notification_ports.h"
@@ -189,6 +191,7 @@ BrowsingContext::~BrowsingContext() {
   interaction->SetExceptionReporter(nullptr, nullptr);
   interaction->SetReclaimPort(nullptr, nullptr);
   interaction->SetBrandPort(nullptr, nullptr);
+  interaction->SetEventClockPort(nullptr, nullptr, nullptr);
 }
 bool BrowsingContext::Begin(BrowsingContext* parent, JS::HandleObject frameElement) {
   helpers = std::make_unique<PageHelpers>(cx, page);
@@ -247,6 +250,17 @@ bool BrowsingContext::Finish(Frames& owner) {
   interaction->SetReclaimPort([](void* context) {
     static_cast<document_model::Realm*>(context)->Reclaim();
   }, document.get());
+  // Event.timeStamp on the document's performance timeline: relative to its
+  // time origin, clamped like performance.now() (Event::TimeStamp).
+  interaction->SetEventClockPort([](void* context, double clock_ms) {
+    auto& owner = *static_cast<BrowsingContext*>(context);
+    JS::RootedObject page(owner.cx, owner.page);
+    return owner.scheduling->OriginRelative(page, clock_ms);
+  }, [](void* context, double ms) {
+    auto& owner = *static_cast<BrowsingContext*>(context);
+    JS::RootedObject page(owner.cx, owner.page);
+    return owner.scheduling->ReduceRelative(page, ms);
+  }, this);
   // Event init dictionary brands (docs/owners/INTERACTION.md): Element and
   // DOMException from Document Model, MediaStreamTrack from Web Media.
   interaction->SetBrandPort([](void* context, int brand, JS::HandleValue value, bool* matches) {
@@ -368,6 +382,25 @@ bool BrowsingContext::Finish(Frames& owner) {
   styling = std::make_unique<web_styling::Realm>(cx, page, *helpers, *environment, content, shadowPrototype);
   styling->SetRangeBrandPort(&document_model::IsAbstractRangeValue);
   if (!styling->Install()) return false;
+  // ctx.lang "inherit" (CanvasRenderingContext2D::ResolveFontLang): the canvas
+  // element's inherited lang from the cascade, or the document root's.
+  canvas->SetLangPort([](void* context, JS::HandleObject element, std::string* lang) {
+    auto& owner = *static_cast<BrowsingContext*>(context);
+    lang->clear();
+    JS::RootedObject target(owner.cx, element);
+    if (!target) {
+      JSObject* document = owner.document->document();
+      if (!document) return true;
+      JS::RootedValue value(owner.cx, JS::ObjectValue(*document));
+      if (!owner.document->SvgLengthRoot(value, &target)) return false;
+      if (!target) return true;
+    }
+    web_styling::ComputedStyle style;
+    if (!owner.styling->ReadComputed(target, &style)) return false;
+    for (const auto& entry : style.values)
+      if (entry.first == "-x-lang") { *lang = entry.second; break; }
+    return true;
+  }, this);
   environment->SetOwnerPort("mediaFeatures", &web_styling::ConfigureProfileGroup, cx);
   styling->SetDocumentPorts(&StyleChain, &StyleSheets, document.get(), &StyleRelation);
   styling->SetDocumentNodePort([](void* context, uint64_t document, uint64_t key,

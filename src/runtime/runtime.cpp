@@ -1,8 +1,10 @@
 #include "runtime/user_activation_ports.h"
 #include "runtime/secure_exposure.h"
 #include "runtime/runtime_internal.h"
+#include "runtime/native_stack.h"
 #include "resource_network/async_http.h"
 #include "resource_network/necko_http.h"
+#include "runtime/transport_partition.h"
 #include "runtime/http_environment_ports.h"
 #include "runtime/pipe.h"
 #include "runtime/exception_capture.h"
@@ -70,7 +72,59 @@ bool Reply(JSContext* cx, JS::HandleObject codec, JS::HandleValue id,
 }
 
 
-bool Run(JSContext* cx, js::cli::OptionParser* options, Checkpoint checkpoint) {
+bool Run(JSContext* cx, js::cli::OptionParser* options, Checkpoint checkpoint,
+         const SessionThreads& threads) {
+  SessionOptions session;
+  if (!options->getMultiStringOption('m').empty() ||
+      !options->getMultiStringOption('p').empty() ||
+      !options->getMultiStringOption('u').empty() || options->getBoolOption('i') ||
+      !options->getMultiStringArg("scriptArgs").empty()) {
+    JS_ReportErrorASCII(cx, "ruyijs currently accepts UTF-8 scripts with -e/-f or a script path");
+    return false;
+  }
+  const char* mode = options->getStringOption("ruyijs-mode");
+  if (mode && strcmp(mode, "debug") && strcmp(mode, "default")) {
+    JS_ReportErrorASCII(cx, "ruyijs mode must be default or debug");
+    return false;
+  }
+  const char* rpc = options->getStringOption("ruyijs-rpc");
+  if (rpc && (!options->getMultiStringOption('e').empty() ||
+              !options->getMultiStringOption('f').empty() || options->getStringArg("script"))) {
+    JS_ReportErrorASCII(cx, "RPC mode accepts code through the request pipe only");
+    return false;
+  }
+  if (rpc) session.rpc = rpc;
+  session.debug = mode && !strcmp(mode, "debug");
+  if (const char* profile = options->getStringOption("ruyijs-environment"))
+    session.environment = profile;
+  if (options->getStringOption("ruyijs-host")) session.host = &threads;
+  return RunSession(cx, session, options, checkpoint);
+}
+
+RUYIJS_NEVER_INLINE
+bool RunSession(JSContext* cx, const SessionOptions& session, js::cli::OptionParser* cli,
+                Checkpoint checkpoint) {
+  // A single session and a shared engine enter here from the same statement
+  // of Run, so this is the native stack a single session has; the engine's
+  // sessions get exactly as much (SessionOptions::stack). Never inlined, so
+  // this is RunSession's own frame whether Run or an engine session calls it.
+  const uintptr_t entry = RUYIJS_ENTRY_POSITION();
+  if (session.host) return Host(cx, cli, checkpoint, *session.host, NativeStackBelow(cx, entry));
+  if (session.stack) MatchNativeStack(cx, entry, session.stack);
+#if !defined(_WIN32)
+  // A plain Context (no engine stack) owns the process. Its helpers are a new
+  // process group, so they are not reaped by the shell exiting; they notice
+  // the closed pipe and spend 100-200 ms leaving. Drop them before return,
+  // which is before the process exits. An engine session has a stack and
+  // releases its own partition from the host, including a shared network.
+  // Windows keeps its own job-object teardown.
+  struct ReleasePlainHelpers {
+    bool armed;
+    ~ReleasePlainHelpers() {
+      if (armed) resource_network::ReleaseNeckoPartition(CurrentPartition()->key);
+    }
+  } releasePlainHelpers{session.stack == 0};
+#endif
   // Heap compaction stays off for the whole runtime. The donor engine's
   // compacting GC faults while relocating the shape/property-map graph the
   // browser installers build (see docs/DEVIATIONS.md D16 for the reproducer
@@ -119,21 +173,13 @@ bool Run(JSContext* cx, js::cli::OptionParser* options, Checkpoint checkpoint) {
       saved.restore();
     }
   } drain{cx, checkpoint};
-  if (!options->getMultiStringOption('m').empty() ||
-      !options->getMultiStringOption('p').empty() ||
-      !options->getMultiStringOption('u').empty() || options->getBoolOption('i') ||
-      !options->getMultiStringArg("scriptArgs").empty()) {
-    JS_ReportErrorASCII(cx, "ruyijs currently accepts UTF-8 scripts with -e/-f or a script path");
-    return false;
-  }
   page = CreatePage(cx);
   if (!page || !InitCodec(cx, &codec)) return false;
   main = std::make_unique<BrowsingContext>(cx, page);
   frames = std::make_unique<Frames>(cx);
   if (!main->Begin()) return false;
   EnvironmentControl control(cx, *main->environment);
-  if (const char* profile = options->getStringOption("ruyijs-environment"))
-    if (!control.File(profile)) return false;
+  if (!session.environment.empty() && !control.File(session.environment.c_str())) return false;
   if (!main->Finish(*frames)) return false;
   top = std::make_unique<TopLevel>(cx, *main);
   frames->SetTopLevel(top.get());
@@ -239,9 +285,11 @@ bool Run(JSContext* cx, js::cli::OptionParser* options, Checkpoint checkpoint) {
   BindHttpEnvironment(*main,*resources,*scheduling);
   BindObjectUrlNetwork(*main, *resources);
   BindBlobStreams(*main->platform, *resources);
-  // Two helper sessions start in the background now, so the page's first
-  // requests do not wait for the helper interpreter (NECKO_TRANSPORT.md).
-  resource_network::PrewarmNeckoSessions(2);
+  // Helper sessions start in the background when prewarm is set, so the page's
+  // first requests do not wait for the helper interpreter (NECKO_TRANSPORT.md).
+  // A plain Linux or macOS Context leaves prewarm at 0 and starts a helper on
+  // demand. Windows still prewarms 2. Engine sessions pass their own count.
+  resource_network::PrewarmNeckoSessions(session.prewarm);
   asyncHttp = std::make_unique<resource_network::AsyncHttp>(resources->Resources());
   if (!resources->BindAsyncHttp(*asyncHttp)) return false;
   BindImageLoads(*main, *asyncHttp);
@@ -378,12 +426,7 @@ bool Run(JSContext* cx, js::cli::OptionParser* options, Checkpoint checkpoint) {
   BindDocumentEvents(*main, pageLoad);
   // Debug session: declared after the owners it observes so it outlives none of
   // them, and bound to the Document Model port only while this scope is alive.
-  const char* mode = options->getStringOption("ruyijs-mode");
-  if (mode && strcmp(mode, "debug") && strcmp(mode, "default")) {
-    JS_ReportErrorASCII(cx, "ruyijs mode must be default or debug");
-    return false;
-  }
-  ApiMonitor monitor(cx, mode && !strcmp(mode, "debug"));
+  ApiMonitor monitor(cx, session.debug);
   struct MonitorBinding {
     document_model::Realm& document;
     interaction::Realm& interaction;
@@ -416,19 +459,14 @@ bool Run(JSContext* cx, js::cli::OptionParser* options, Checkpoint checkpoint) {
   } topLevelBinding{{*scheduling, pageLoad, monitor, *frames}, *top};
   top->SetDocumentPort(&BindTopLevelDocument, &topLevelBinding.owners);
   top->SetRetirePort(&RetireTopLevelDocument, &topLevelBinding.owners);
-  if (options->getStringOption("ruyijs-rpc") &&
-      (!options->getMultiStringOption('e').empty() ||
-       !options->getMultiStringOption('f').empty() || options->getStringArg("script"))) {
-    JS_ReportErrorASCII(cx, "RPC mode accepts code through the request pipe only");
-    return false;
-  }
-  if (const char* name = options->getStringOption("ruyijs-rpc"))
-    return Serve(cx, *top, codec, name, checkpoint, errors, control,
+  if (!session.rpc.empty())
+    return Serve(cx, *top, codec, session.rpc.c_str(), checkpoint, errors, control,
                  schedulingControl, resourceControl, consoleControl, pageLoad, monitor);
+  if (!cli) return true;
   control.Freeze();
   schedulingControl.Freeze();
-  auto expressions = options->getMultiStringOption('e');
-  auto files = options->getMultiStringOption('f');
+  auto expressions = cli->getMultiStringOption('e');
+  auto files = cli->getMultiStringOption('f');
   while (!expressions.empty() || !files.empty()) {
     if (!expressions.empty() && (files.empty() || expressions.argno() < files.argno())) {
       const char* code = expressions.front();
@@ -441,7 +479,7 @@ bool Run(JSContext* cx, js::cli::OptionParser* options, Checkpoint checkpoint) {
       files.popFront();
     }
   }
-  if (const char* path = options->getStringArg("script"))
+  if (const char* path = cli->getStringArg("script"))
     return File(cx, top->Page(), codec, path, checkpoint, errors);
   return true;
 }

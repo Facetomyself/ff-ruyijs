@@ -1,16 +1,33 @@
 #pragma once
 #include <array>
+#include <memory>
 #include <string>
 #include <utility>
 #include <vector>
 
 namespace ruyijs::domain::styling {
 using BoxRect = std::array<double, 4>;
+// Pointers into a BoxStyle's shared value list for the names layout reads on
+// every box. Absent entries are null. The pointers stay valid while `values`
+// is alive, and BoxStyle keeps both.
+struct BoxKnown {
+  static constexpr int kCount = 29;
+  std::array<const std::string*, kCount> slot{};
+};
 struct BoxStyle {
-  std::vector<std::pair<std::string, std::string>> values;
+  // Computed values sorted by name (Share), searched by Get, and shared: a
+  // text box takes its element's style and an unchanged element keeps the
+  // previous layout's by copying a pointer, not a few hundred strings.
+  using Values = std::vector<std::pair<std::string, std::string>>;
+  std::shared_ptr<const Values> values;
   double font_size = 16, root_font_size = 16;
   unsigned specified_margin_mask = 0, specified_border_mask = 0, specified_padding_mask = 0;
-  std::string Get(const char* name) const;
+  // Filled by Build. Null means Get searches `values` (the same answer).
+  std::shared_ptr<const BoxKnown> known;
+  const std::string& Get(const char* name) const;
+  static std::shared_ptr<const Values> Share(Values values);
+  static BoxStyle Build(Values values, double font_size, double root_font_size,
+                        unsigned margin_mask, unsigned border_mask, unsigned padding_mask);
 };
 struct BoxNode {
   BoxStyle style;
@@ -27,15 +44,39 @@ struct BoxNode {
   double attribute_width_percent = -1, attribute_height_percent = -1;
   bool no_frame_border = false;
 };
-struct BoxViewport { double width = 0, height = 0, scroll_x = 0, scroll_y = 0; };
+struct BoxViewport {
+  double width = 0, height = 0, scroll_x = 0, scroll_y = 0;
+  // The scrollport (initial and fixed containing block): the viewport less the
+  // viewport scrollbars; set by ComputeBoxLayout, -1 for the full viewport.
+  double client_width = -1, client_height = -1;
+  double ClientWidth() const { return client_width >= 0 ? client_width : width; }
+  double ClientHeight() const { return client_height >= 0 ? client_height : height; }
+};
+// Classic (non-overlay) Windows scrollbar thickness, which Firefox lays out for
+// a scroll container with a scrollbar (nsIFrame scrollbar gutter, 17 CSS px).
+inline constexpr double kBoxScrollbar = 17;
 struct BoxLayout {
   BoxRect border{}, content{};
   std::array<double, 4> margin{}, padding{}, edge{};
+  // A scroll container's scrollbars: the vertical bar's width and the
+  // horizontal bar's height, taken from its content box.
+  std::array<double, 2> scrollbar{};
   double line = 0;  // Line box contribution of text and non-replaced inline boxes.
   bool present = false, definite_height = false;
 };
+// The viewport scroll frame: the scrollport (client) size and the root's
+// scrollable overflow (scroll) size, at least the scrollport.
+struct BoxScrollport { double client_width = 0, client_height = 0, scroll_width = 0, scroll_height = 0; };
 // Call-scoped projection: no node identity, retained tree, renderer or engine dependency.
-bool ComputeBoxLayout(const std::vector<BoxNode>&, const BoxViewport&, std::vector<BoxLayout>*);
+bool ComputeBoxLayout(const std::vector<BoxNode>&, const BoxViewport&, std::vector<BoxLayout>*,
+                      BoxScrollport* scrollport = nullptr);
+// Whether a box is a scroll container (overflow other than visible/clip on an
+// axis). The root and a body whose overflow propagates to the viewport are not.
+bool BoxScrollContainer(const std::vector<BoxNode>&, size_t);
+// The right/bottom edge of |index|'s descendants' margin boxes, through every
+// descendant that is not itself a scroll container.
+void BoxOverflowExtent(const std::vector<BoxNode>&, const std::vector<BoxLayout>&, size_t index,
+                       double* right, double* bottom);
 BoxRect ProjectBoxRect(const std::vector<BoxNode>&, const std::vector<BoxLayout>&,
                        const BoxViewport&, size_t target);
 }

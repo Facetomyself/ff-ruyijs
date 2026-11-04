@@ -24,25 +24,33 @@ relevant [owner record](./docs/owners) first. The essentials:
   example via `tools/firefox_parity`) and update [docs/DEVIATIONS.md](./docs/DEVIATIONS.md) when
   a difference remains.
 
-- **Cut from the recorded line.** Read [docs/BRANCHES.md](./docs/BRANCHES.md)
-  ([中文](./docs/BRANCHES.zh-CN.md)) before choosing a base. On this fork, macOS fixes land on
-  `release/macos` first and `main` fast-forwards to the same commit. An upstream update is merged
-  on a branch cut from `release/macos`, reviewed, and merged back.
+- **Cut from `main`.** Read [docs/branching.md](./docs/branching.md)
+  ([中文](./docs/branching.zh-CN.md)) before choosing a base. `main` is the trunk for Linux,
+  macOS, and Windows. An upstream update is merged on a `sync/<sha>` branch cut from `main`,
+  checked per platform, and merged back. `release/macos` is a fast-forward pointer of `main`,
+  not a second place to commit.
 
 ## Pull request checklist
 
 - [ ] The owner record (bounded context, state source, factory, installer, tests) is updated for API changes
-- [ ] `js.exe` and `ruyijs_client.dll` are rebuilt (`python -B tools/build.py ...`)
+- [ ] When C++ changes, the shell is rebuilt (`js.exe` on Windows, `js` on macOS) together with the client library (`python -B tools/build.py ...`)
 - [ ] Behaviour is checked through both Python and the C ABI
 - [ ] Tests cover the owner, descriptors/prototypes, invalid receivers and realm behaviour, not just "it exists"
 - [ ] The diff contains no build outputs, captures, logs, credentials or proxy details
 
-- [ ] If this pull request creates, retargets, merges, or drops a shared branch, [docs/BRANCHES.md](./docs/BRANCHES.md) and [docs/BRANCHES.zh-CN.md](./docs/BRANCHES.zh-CN.md) match the new tips and roles, and that same update is pushed to every `origin` branch
+- [ ] If this pull request changes the role of a long-lived branch, [docs/branching.md](./docs/branching.md) and [docs/branching.zh-CN.md](./docs/branching.zh-CN.md) match. A fast-forward of `release/macos` or `tls/necko-core-arm64` does not need a docs commit, and the change is not copied onto every other branch
 
 ## Reporting issues
 
-Please include the ruyijs version or commit, your Windows version, a minimal script, the
-actual output and, where possible, what real Firefox returns for the same code.
+Please include the ruyijs version or commit, your Windows version or your macOS version
+and Xcode version, the Firefox tag, and which of the two donor objdirs the build used.
+Also include a minimal script, the actual output and, where possible, what real Firefox
+returns for the same code. macOS maintainers follow [docs/macos.md](./docs/macos.md), [docs/macos-baseline.md](./docs/macos-baseline.md), and [docs/macos-gaps.md](./docs/macos-gaps.md).
 
-By contributing you agree that your contributions are licensed under the
-[Mozilla Public License 2.0](./LICENSE).
+ff-ruyijs is dual-licensed under the [AGPL-3.0](./LICENSE) and a
+[commercial license](./COMMERCIAL-LICENSE.md). By submitting a contribution you
+agree that it is licensed under the AGPL-3.0, and you grant the project author a
+perpetual, worldwide, non-exclusive, royalty-free, irrevocable license to use,
+modify, sublicense and distribute your contribution under other license terms,
+including commercial ones. You confirm that you have the right to grant this.
+Changes to Mozilla-derived files remain under the MPL-2.0.

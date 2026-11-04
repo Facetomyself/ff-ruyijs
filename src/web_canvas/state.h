@@ -30,7 +30,11 @@ enum StateField : int32_t {
   kFontVariantCaps, kLetterSpacing, kTextRendering, kWordSpacing,
   kLang, kLineDash, kMatrix,
 };
-inline constexpr int32_t kStateFields = kMatrix + 6;
+// After the six matrix entries: the clip list, an array of clip records
+// [evenOdd, path2d, a b c d e f, path commands...] that clip() replaces (never
+// mutates), so save()/restore() keep each state's clips.
+inline constexpr int32_t kClips = kMatrix + 6;
+inline constexpr int32_t kStateFields = kMatrix + 7;
 
 // CanvasRenderingContext2D reserved slots.
 inline constexpr int32_t kContextCanvasSlot = 0;
@@ -92,6 +96,11 @@ struct State {
   bool (*capturePort)(void*, JS::HandleObject, JS::MutableHandleObject) = nullptr;
   void* capturePortContext = nullptr;
   bool (*elementCheck)(void*, JS::HandleObject, bool*) = nullptr;
+  // The inherited content language of a canvas element (its own or an
+  // ancestor's lang/xml:lang), or of the document's root element when
+  // `element` is null; "" when none. Unbound in a worker.
+  bool (*langPort)(void*, JS::HandleObject element, std::string* lang) = nullptr;
+  void* langPortContext = nullptr;
   void* elementCheckContext = nullptr;
   bool (*matrixFactory)(void*, const double*, JS::MutableHandleObject) = nullptr;
   void* matrixFactoryContext = nullptr;
@@ -134,6 +143,24 @@ bool AppendCanvasPath(JSContext*, JS::HandleObject, const double*, uint32_t);
 // context2d_paint.cpp: the fill operations that write pixels.
 bool FillRecordedPath(State&, JS::HandleObject, JS::HandleObject, bool);
 bool FillRecordedRect(State&, JS::HandleObject, const double*);
+bool StrokeRecordedPath(State&, JS::HandleObject, JS::HandleObject);
+bool StrokeRecordedRect(State&, JS::HandleObject, const double*);
+bool MarkPathFinished(JSContext*, JS::HandleObject);
+// clip() / clip(path, rule): appends the path as it is now to the clip list.
+bool RecordClip(JSContext*, JS::HandleObject context, JS::HandleObject owner, bool evenOdd);
+// clearRect(): DrawTargetSkia::ClearRect under the transform and clips.
+bool ClearRecordedRect(State&, JS::HandleObject, const double*);
+namespace skia { struct Clip; }
+bool ReadCanvasClips(JSContext*, JS::HandleObject, std::vector<skia::Clip>*);
+namespace skia { struct ShadowStyle; }
+bool ReadCanvasShadow(JSContext*, JS::HandleObject, skia::ShadowStyle*, bool*);
+// strokeText(): the text runs drawn with the stroke style through Skia.
+bool StrokeRecordedText(State&, JS::HandleObject, const std::u16string&, double x, double y,
+                        double maxWidth);
+// fillText() through Skia; *handled is false when a run's font has colour
+// glyphs, which the glyph-mask path (FillCanvasText) draws instead.
+bool FillRecordedText(State&, JS::HandleObject, const std::u16string&, double x, double y,
+                      double maxWidth, bool* handled);
 
 // errors.cpp: the page realm's DOMException, the one error factory here.
 bool ThrowDOMException(State& state, const char* name, const char* message);
@@ -158,7 +185,11 @@ JSObject* NewContext2D(State& state, JS::HandleObject canvas, JS::MutableHandleO
 bool InstallContext2DState(State&, WebFace&);
 bool InstallContext2DPath(State&, WebFace&);
 bool InstallContext2DFill(State&, WebFace&);
-bool FillCanvasText(State&, JS::HandleObject, const std::u16string&, double, double, double);
+// |into| (optional) draws into that premultiplied RGBA surface instead of the
+// canvas, source-over and shifted by (dx, dy): AdjustedTargetForShadow's temp.
+struct TextTarget { uint8_t* pixels; int width, height; int dx, dy; };
+bool FillCanvasText(State&, JS::HandleObject, const std::u16string&, double, double, double,
+                    const TextTarget* into = nullptr);
 // context2d_image.cpp: createImageData/getImageData/putImageData.
 bool InstallImageMethods(State&, WebFace&);
 bool Context2DCanvas(JSContext*, unsigned, JS::Value*);

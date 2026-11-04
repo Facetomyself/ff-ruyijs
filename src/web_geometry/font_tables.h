@@ -4,6 +4,7 @@
 // Bounded table checks from gfxDWriteFont::HasBitmapStrikeForSize and IsCJKFont.
 #pragma once
 #include <cstdint>
+#include <cmath>
 #include "web_geometry/font_backend.h"
 namespace ruyijs::web_geometry {
 
@@ -53,6 +54,15 @@ inline hb_position_t GdiAdvance(hb_font_t*, void* data, hb_codepoint_t glyph, vo
   if (FAILED(input.face->GetGdiCompatibleGlyphMetrics(std::round(input.size), 1,
       nullptr, FALSE, &id, 1, &metrics, FALSE))) return 0;
   return hb_position_t(std::floor(metrics.advanceWidth * input.fontUnits + .5) * 65536);
+}
+// gfxDWriteFont::GetGlyphWidth with subpixel positions: the face's design
+// advance (which includes a DirectWrite bold simulation) in 16.16 pixels.
+inline hb_position_t DesignAdvance(hb_font_t*, void* data, hb_codepoint_t glyph, void*) {
+  const auto& input = *static_cast<BitmapAdvance*>(data);
+  const UINT16 id = UINT16(glyph);
+  DWRITE_GLYPH_METRICS metrics{};
+  if (FAILED(input.face->GetDesignGlyphMetrics(&id, 1, &metrics, FALSE))) return 0;
+  return hb_position_t(std::lround(metrics.advanceWidth * input.fontUnits * 65536.0));
 }
 
 }

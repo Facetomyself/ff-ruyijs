@@ -5,7 +5,7 @@
 ff-ruyijs is a headless Firefox engine for Python. It embeds SpiderMonkey (Firefox 159) and the Necko HTTP stack so Python can execute any site's JavaScript natively — no browser window, no renderer.
 
 - **Repository:** https://github.com/cutetailbud/ff-ruyijs
-- **License:** ff-ruyijs Source Available License v1.0
+- **License:** AGPL-3.0-only + commercial (dual license); Mozilla-derived code is MPL-2.0
 
 ## Key patterns
 
@@ -26,13 +26,9 @@ ff-ruyijs is a headless Firefox engine for Python. It embeds SpiderMonkey (Firef
 - Examples are registered in `python/ruyijs/examples/__main__.py`.
 - All examples support `--proxy`, `--direct`, `--output`, `--help` flags.
 
-## Branch map
+## Branches
 
-`docs/BRANCHES.md` and `docs/BRANCHES.zh-CN.md` are the map of remotes and branches. Read them before choosing a base branch or describing where work lives.
-
-When a change creates, renames, deletes, pushes, or retargets a branch on `origin` or `upstream`, merges a pull request, or changes which branch holds a line of work, update both files in that same change. Record the remote, tip SHA, subject, date, role, and which branch to check out. Recompute tips with `git fetch origin` and `git fetch upstream` when the network is available. If you did not fetch, say the figures are from local refs and give the date. Keep the two files in agreement. Leave the task unfinished while the map still describes the previous layout. A branch that was never pushed stays out of the map.
-
-Keep this map on every branch of `origin`. After the files change, apply those documentation commits to each `origin` branch and push them. Fast-forward a branch that can take the commits directly. Cherry-pick them onto a branch that has diverged, and keep that branch's other changes. This checkout does not push `upstream`. The task is unfinished until every `origin` branch has the change.
+`docs/branching.md` is the branch rules. `main` is the trunk. Do not commit on `release/macos`, and do not push a map commit onto every other branch. Do not push `upstream`.
 
 ## Do NOT suggest
 

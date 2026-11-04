@@ -3,7 +3,225 @@
 All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Unreleased]
+## [0.3.3] - 2026-11-02
+
+### Changed
+
+- The Necko helpers start from bytecode. The Python bundled for them on Windows and Linux held its standard
+  library as sources, and pip compiles the bundled packages for whichever Python installs the wheel (rarely the
+  helpers' 3.14), so each helper compiled about 350 modules when it started, and so did each DNS resolver child a
+  helper starts for a new host. The runtime now carries bytecode of the bundled Python (unchecked-hash `.pyc`).
+  On Windows, with the wheel installed by Python 3.12: a helper starts in 0.55 CPU-seconds instead of 2.4 and
+  uses about 3 MiB less (5 MiB after its first HTTPS request); opening 32 Contexts takes 40 CPU-seconds instead
+  of 218; the first request to a new host is about 0.45 s faster, and a page that needs many helpers loads
+  sooner (github.com: 9.4 s instead of 16.8). `ci/helper_check.py` fails when a helper compiles a module.
+- The bundled helper Python leaves out modules the helper cannot use: on Windows Tk, SQLite and winsound
+  (5.4 MB); on Linux the static libpython and its build files (73 MB), the build Python's pip, CPython's test
+  modules, and the Tk, curses, readline, dbm and SQLite extension modules, with the libraries they brought into
+  the bundle (libtcl, libtk, libX11).
+
+### Fixed
+
+- Geometry reads (`offsetHeight`, `getBoundingClientRect()`, `scrollHeight`, ...) after a style change no
+  longer restyle elements the change cannot reach, and lay out faster (#13, reported by @jp19980). A child keeps
+  its computed style when its parent's change leaves what the parent passes it unchanged (inherited and custom
+  properties, display, font sizes), as Firefox does, unless the child `inherit`s a property that does not
+  inherit. Layout shares computed styles instead of copying them, finds properties in a sorted table, remembers
+  resolved lengths, and keeps a text's measurement while neither the text nor its font changed. With 1,500 divs,
+  reading an input's `offsetHeight` after changing a later sibling's padding took 415 ms and now takes 57 ms on
+  the Windows machine we measured (500 divs: 132 to 17.6 ms; 100: 28 to 4.7 ms).
+- Geometry read after a mutation missed two changes until the page was laid out from scratch: a custom property
+  changed on an element did not reach children that read it through `var()`, and a line-height changed from a
+  length to a number (`20px` to `1.25`) did not reach children with another font size. `ci/layout_check.py`
+  compares geometry read after a mutation with a fresh layout of the mutated page.
+
+## [0.3.2] - 2026-11-02
+
+### Fixed
+
+- `Engine`: sessions no longer wait for each other's memory allocations. Each session thread allocates from a
+  jemalloc arena of its own, as Firefox's main thread does, and gives its free pages back when it ends. 32
+  sessions loading a page at once took 8.0 s and 156 CPU-seconds, now 2.2 s and 17 (32 Contexts: 1.8 s). Linux
+  builds use glibc's allocator, which already gives each thread an arena.
+
+### Changed
+
+- Windows: `js.exe`, its Necko helpers and worker processes start without a console (`DETACHED_PROCESS`), so
+  none of them brings a `conhost.exe` of its own (about 6 MiB each). A Context now runs in 3 processes instead of
+  6 and uses about 17 MiB less; an engine session uses one process and about 6 MiB less.
+  `ci/engine_check.py` checks it.
+
+## [0.3.1] - 2026-11-01
+
+### Added
+
+- `Engine`: many independent Contexts as sessions of one shell process (`engine.context(...)`,
+  `Context(engine=...)`, `use_engine(engine)`; docs/engine.md). Each session runs on its own thread with its
+  own JSContext, heap, page, clock, cookies, storage, host functions, environment, proxy, TLS profile and
+  Necko helpers, in parallel, with the native stack of a process of its own. A timeout or `close()` ends only
+  that session. `prewarm`, `network=` (shared helpers and connections) and `max_helpers` bound the helper
+  processes: four sessions measured 219 MiB in 5 processes against 385 MiB in 12 for four Contexts.
+  `python -m ruyijs.examples --shared NAME ...` runs several examples at once in one engine, and every
+  example's `main()` takes an optional argument list.
+- macOS: `Context(proxy=...)` works in a wheel without xpcshell (#7 by @Facetomyself). HTTPS opens an
+  HTTP CONNECT tunnel and then uses `libnecko_core`; cleartext HTTP sends an absolute-form request through
+  the proxy; HTTP/3 does not go through it. With xpcshell present, the proxy stays on the Necko prefs as
+  on Windows. Proxy credentials in the URL are not sent on this path.
+- macOS: `tools/build_necko_darwin.py` builds the Windows Necko adapter (the `necko` and `ruyijs_necko`
+  packages with `libnecko_core.dylib` and the Neqo bridge from `native/necko_posix`) for a local build;
+  `Context` uses it when `dist/necko-adapter` or `build/necko-darwin` exists (#9 by @Facetomyself). The
+  PyPI wheel is unchanged.
+- CI: `ci/hello_check.py` compares each wheel's TLS ClientHello with one captured from Firefox 159.0
+  (`ci/firefox159-hello.json`); it fails the Windows, macOS and Linux builds on any difference.
+- macOS: text is shaped with Core Text, as Firefox 159 shapes it on macOS, so system fonts' AAT `kern`
+  tables and glyph-path ink bounds match Firefox. Windows and Linux keep HarfBuzz (#8 by @isesword).
+- `DOMException.prototype` has Firefox's `result`, `filename`, `lineNumber`, `columnNumber`, `data` and
+  `stack` accessors, in Firefox's order before the constants. `data` exists on Window only and `stack` is
+  `[Replaceable]` (#8 by @isesword).
+- `CSS.supports` answers 26 more property/value pairs the way Firefox 159 does, among them `accent-color`,
+  `aspect-ratio`, `backdrop-filter`, `container-type`, `text-wrap: balance` and `content-visibility`
+  (#8 by @isesword).
+- `RUYIJS_CF_ACCESS_LOG=<file>` appends the host-object reads a page makes (navigator and screen fields,
+  document visibility, `CSS.supports`, `matchMedia`) to that file; `tools/signal_parity.py` collects the
+  same reads from Firefox 159. Off by default (#8 by @isesword).
+- Local macOS builds: `tools/build.py --profile firefox-environment-macos.json` bakes a macOS Firefox 159
+  profile, and `--necko-nss-lib` links `libnecko_core` against a local NSS. CI and the wheels keep the
+  default profile (#8 by @isesword).
+- The `truepeople` example: Cloudflare's managed challenge on the Necko stack
+  (`python -m ruyijs.examples truepeople`) (#8 by @isesword).
+
+### Changed
+
+- `atob("Charleval")` throws an `InvalidCharacterError` DOMException whose message is `hello,Charleval`,
+  on Window and in Workers; every other input behaves as before. Firefox throws its ordinary
+  invalid-character error for this string.
+
+### Fixed
+
+- macOS: HTTP/2 responses no longer stall. `necko_tls_pending` peeks at the socket the way the Windows
+  `necko_core.dll` does, instead of asking NSS only for already decrypted bytes (#10 by @sbbbsbbb).
+- macOS: the ClientHello is Firefox 159's: ALPN offers `h2` first, the profile's cipher order, and
+  `status_request`, `delegated_credentials` and a 32-byte legacy session id (#10 by @sbbbsbbb).
+- macOS: an HTTP CONNECT response with only a status line is accepted, and `libnecko_quic` initializes NSS
+  when its first command arrives before `necko_quic_init` (#10 by @sbbbsbbb).
+- Linux: the ClientHello is Firefox 159's. ALPN offers `h2` before `http/1.1` (NSS moves the first protocol
+  to the end, so `http/1.1` is passed first) and the `post_handshake_auth` extension is no longer sent.
+- macOS: an HTTPS server that negotiates no ALPN is read as HTTP/1.1 on `libnecko_core` instead of falling
+  back to xpcshell, which the PyPI wheel does not have (#5 by @Starktomy).
+- macOS: closing a WebTransport session keeps its final statistics; they are read before Neqo removes the
+  session (#5 by @Starktomy).
+
+## [0.3.0] - 2026-11-01
+
+### Changed
+
+- `docs/macos-baseline.md`, `docs/macos.md`, `docs/macos-gaps.md`, and their Chinese pairs set the integration base to `6d45317` (`release: pin the 0.3.0 runtime`), record the third sync merge `94f3540` and the upstream `v0.3.0` Windows runtime URL, and state that PyPI's `macosx_26_0_arm64` wheel has no xpcshell while `runtime.json` `macos.url` remains the fork `v0.2.1` zip. This round rebuilt `dist/js` and smoked `1+1` plus `https://example.com/`.
+- `docs/macos-gaps.md` and `docs/macos-gaps.zh-CN.md` record the pushed fork tip (`e2fcba2`), the post-sync macOS rebuild, the `example.com` smoke after the Windows font guard landed by fast-forward, the Apple-header guard audit, the socket-process product flags, the fork-release zip size and sha256 check, and the third upstream sync of `6d45317` (0.3.0 / Linux) as `94f3540`.
+- `docs/macos-baseline.md`, `docs/macos-gaps.md`, and their Chinese pairs record the upstream syncs through `fd094ed` and then `6d45317`.
+
+### Added
+
+- Wheels for Windows x64, macOS arm64 and Linux x86_64 on PyPI, built by GitHub Actions from the official
+  Firefox 159.0 source, referenced as the `firefox/` submodule (`mozilla-firefox/firefox` at
+  `FIREFOX_159_0_RELEASE`). One run of `.github/workflows/wheels.yml` builds SpiderMonkey, Skia, NSS and
+  mozglue on each runner (`ci/firefox/`, `ci/linux/build.sh`), then ruyijs and the wheel, and tests the
+  installed wheel in a fresh venv offline (`ci/smoke_test.py`) and online (`ci/network_smoke.py`, one page
+  load through Necko). No Firefox tree outside the repository is needed.
+- macOS arm64 on PyPI (`macosx_26_0_arm64`, macOS 26 or later). Direct HTTPS uses `libnecko_core.dylib`
+  and `libnecko_quic.dylib`, linked against the NSS built from the same source. The wheel has no xpcshell,
+  so proxies are not available on macOS yet. `h2`, `cryptography`, `publicsuffixlist` and `backports.zstd`
+  join the Darwin dependencies of the Necko helper.
+- Linux x86_64 (`manylinux_2_39_x86_64`, glibc 2.39 or later; #5 by @Starktomy): a native ELF shell on the
+  POSIX process, pipe and socket layer shared with macOS; fontconfig/FreeType/HarfBuzz text, OpenSSL 3
+  WebCrypto, libwebp, LittleCMS2, stb_image and the vendored libavif; the Necko helper on NSS 3.131 /
+  NSPR 4.40 and Neqo built from the Firefox source, with its own Python 3.14 (`native/necko_posix/`,
+  `docs/linux.md`).
+- `docs/macos-baseline.md` and `docs/macos-gaps.md`, with Chinese pairs, record the maintenance floor and the current gaps. Further macOS work is based on upstream `main`. The fork tip before the fast-forward, `0a82adb`, did not contain the Windows guard in `font_face_mac.cpp`.
+- `docs/macos.md` and `docs/macos.zh-CN.md` record the 0.2.1 comparison. The C client install name is `@rpath`. `Context(tls=)` reaches the xpcshell environment and is not read there. Same-process HTTP/3 can be version 30 after a remembered `Alt-Svc`. The socket process stays off.
+- macOS arm64 source build of the shell. SpiderMonkey and Necko stay in an official Firefox donor tree outside this repository. Maintainer steps and the verified HTTP/1.1 and HTTP/2 path are in `docs/macos.md` and `docs/macos.zh-CN.md`.
+- macOS image and font adapters on the existing system frameworks: ImageIO display frames, Core Text text paths, the Firefox single-face font alias, COLR version 0, and display ICC through Firefox qcms.
+- A local macOS wheel lays the shell out at `_runtime/dist/js` and copies the donor xpcshell closure to `_runtime/dist/necko`, including `libnecko_quic.dylib` when that library exists. The wheel also includes `necko/closed_route.py`, `necko/core_client.py`, and `necko_win`. `requests`, `brotli`, and `zstandard` are Darwin package dependencies. `runtime.json` stores the archive size, sha256, and the fork-release URL. That local wheel keeps the xpcshell closure; the PyPI wheel is built without it.
+- `tools/bootstrap_macos_helper.py` creates the gitignored Necko helper venv with Python 3.12 and the packages `requests`, `brotli`, and `zstandard`. An existing venv is left in place.
+
+### Changed
+
+- The Windows runtime's `js.exe` and `mozglue.dll` are built from the submodule on CI. The Necko transport,
+  the embedded Python and the MSVC runtime DLLs are carried over from the 0.2.1 runtime archive;
+  `SOURCE_NOTICE.md` in the runtime records both.
+- `tools/build.py` resolves its path arguments, so relative `--donor-obj` and `--firefox-gfx-obj` paths
+  work. `tools/build_necko_quic.py` and the NSPR headers fall back to the `firefox/` submodule.
+- On Darwin, `tools/build.py` installs the tracked xpcshell adapter (`oneshot`, package init, timing, client, and adapters) into the helper venv. Windows still receives `oneshot.py` only. A missing helper venv does not block linking `dist/js` and does not create a release archive.
+- Darwin canvas links Firefox's Skia objects from the browser donor and builds text typefaces with `SkMakeTypefaceFromCTFont`. The `--timing-v3` trailer now carries eight values. DNS, connect, and TLS slots stay 0 because this adapter does not measure them.
+
+### Fixed
+
+- Firefox 159 parity: CSSOM declarations serialize as Servo does; the cascade handles `@layer`,
+  `@property`, flow-relative properties, `!important` longhands over `var()` shorthands and
+  blockification; cross-origin iframe navigation timing follows `Timing-Allow-Origin`; a `display:none`
+  iframe has no scroll range; `HTMLElement.spellcheck`; text flex items, percentage resolution and
+  replaced elements in layout; the OS locale for untagged text, canvas `ctx.lang`, Skia mask gamma and
+  colour conversion, SVG text positions, `EXT_clip_control` and `EXT_texture_mirror_clamp_to_edge`.
+- The Windows family/language cache key in `font_collection.cpp` is a `'\0'` separator again, so that half compiles. The macOS key stays a newline. `requests`, `brotli`, and `zstandard` stay Darwin dependencies.
+- macOS iframe loads map Necko ticks with `steady_clock` milliseconds, the same clock `page_navigation.cpp` already uses. Windows keeps `QueryPerformanceCounter`.
+
+### Changed
+
+- **License:** ff-ruyijs is now dual-licensed under the AGPL-3.0-only or a commercial
+  license (`COMMERCIAL-LICENSE.md`), replacing the ff-ruyijs Source Available License
+  v1.0. Releases up to 0.2.1 keep the license they shipped with; Mozilla-derived code
+  stays MPL-2.0. Contributions are accepted under the AGPL-3.0 plus a relicensing grant
+  (`CONTRIBUTING.md`).
+
+## [0.2.1] - 2026-10-30
+
+### Fixed
+
+- Timer precision is Firefox 159's: `performance.now()`, `timeOrigin`,
+  `Date.now()`, `Event.timeStamp` and every navigation / resource time are
+  clamped to 1 ms with Firefox's jittered rounding (`nsRFPService`), one seed
+  per document. `Event.timeStamp` is on the document's performance timeline.
+- Navigation and resource timing report the measured DNS, connect and TLS
+  phases from Necko (a reused connection reads `fetchStart`, as in Firefox);
+  a browser-initiated load's `fetchStart` precedes `navigationStart`.
+  `deliveryType` is in Firefox's member order; unreached milestones read 0.
+- Necko resolves IP literals without a lookup and caches names
+  (`network.dnsCacheExpiration` 60 s, 1600 entries).
+- Layout: CSS margin collapsing, 17 px classic scrollbars on the viewport and
+  scroll containers, root `clientWidth/Height` and `scrollWidth/Height` from
+  the scrollport, `scrollTopMax` / `scrollLeftMax`, `clientTop` /
+  `clientLeft`, `window.scrollMaxX/Y`.
+- Fonts: SimSun line height (bad-underline metrics), the Arial default when no
+  listed family is installed, Firefox's per-script system fallback list.
+- SVG text `getBBox`: font box versus frame descent, and no glyph ink below
+  20 px (`text-rendering: auto`).
+- Example result files no longer ship in the wheel.
+
+## [0.2.0] - 2026-10-29
+
+### Added
+
+- Canvas 2D draws through Firefox 159's own Skia (`gfx/skia`), set up like
+  Firefox's `DrawTargetSkia`: fills, strokes, paths, `clip`, gradients,
+  patterns, `roundRect`, `drawImage`, shadows and `fillText` / `strokeText`.
+- `Context(tls="100".."159")` selects the Firefox release whose TLS
+  ClientHello, HTTP/2 settings and HTTP/3 priorities Necko sends.
+- `DOMMatrix` / `DOMMatrixReadOnly`: every operation, `fromMatrix`,
+  `fromFloat32/64Array`, CSS transform strings, `transformPoint`, `toString`.
+
+### Fixed
+
+- `Origin` and the body `Content-Type` on fetch / XHR / `sendBeacon`;
+  `Sec-Fetch-Site` across redirects; `window.originAgentCluster`.
+- `window.event` during microtasks queued by an event listener.
+- Font fallback by language group, element `lang`, SVG presentation
+  attributes and SVG text `getBBox`; `ctx.font` read-back.
+- `python -m ruyijs.examples` lists the examples that ship; DataDome output on
+  a Chinese Windows console; the Akamai example keeps its User-Agent and TLS
+  version together (`--tls`).
+
+### Changed
+
+- The bundled runtime is rebuilt on Firefox 159 (SpiderMonkey, Necko, Skia).
 
 ## [0.1.9] - 2026-10-29
 

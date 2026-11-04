@@ -13,7 +13,15 @@
 #include "js/PropertyAndElement.h"
 #include "js/String.h"
 #include "js/Realm.h"
+#ifdef _WIN32
 #include <windows.h>
+#elif defined(__linux__)
+#include <unistd.h>
+#include <cstdint>
+#else
+#include <mach-o/dyld.h>
+#include <cstdint>
+#endif
 
 namespace ruyijs::web_workers {
 namespace {
@@ -25,11 +33,28 @@ const JSClassOps kWorkerOps = {nullptr, nullptr, nullptr, nullptr, nullptr, null
                                FinalizeWorker};
 }  // namespace
 std::wstring WorkerExecutable() {
+#ifdef _WIN32
   std::wstring path(32768, L'\0');
   const DWORD size = GetModuleFileNameW(nullptr, path.data(), DWORD(path.size()));
   if (!size || size >= path.size()) return {};
   path.resize(size);
   return path;
+#elif defined(__linux__)
+  // One path byte per wchar, as on Darwin; process_start.cpp reverses it.
+  char buffer[4096];
+  const ssize_t size = readlink("/proc/self/exe", buffer, sizeof(buffer) - 1);
+  if (size <= 0) return {};
+  std::wstring path;
+  for (ssize_t i = 0; i < size; ++i) path.push_back(wchar_t(static_cast<unsigned char>(buffer[i])));
+  return path;
+#else
+  char buffer[4096];
+  uint32_t size = sizeof(buffer);
+  if (_NSGetExecutablePath(buffer, &size) != 0) return {};
+  std::wstring path;
+  for (unsigned char ch : std::string(buffer)) path.push_back(wchar_t(ch));
+  return path;
+#endif
 }
 namespace {
 bool UrlText(JSContext* cx, JS::HandleValue value, std::string* text) {

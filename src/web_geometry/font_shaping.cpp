@@ -1,3 +1,4 @@
+#ifdef _WIN32
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -73,12 +74,16 @@ bool ShapeFont(const SelectedFont& selected, const FontInput& input,
   hb_font_set_scale(font.get(), int(std::round(size * 65536)), int(std::round(size * 65536)));
   hb_font_set_ppem(font.get(), unsigned(size), unsigned(size));
   const bool bitmap = CJKFont(hbface.get()) && BitmapSize(hbface.get(), unsigned(std::round(size)));
-  HbPtr<hb_font_t, hb_font_destroy> shaping(bitmap ? hb_font_create_sub_font(font.get()) :
+  // gfxDWriteFontEntry::CreateFontFace: a bold request on a face without bold
+  // gets DirectWrite's bold simulation (gfx.font_rendering.directwrite.
+  // bold_simulation = 1), whose wider advances the shaper reads from the face.
+  const bool simulatedBold = !bitmap && (face->GetSimulations() & DWRITE_FONT_SIMULATIONS_BOLD);
+  HbPtr<hb_font_t, hb_font_destroy> shaping(bitmap || simulatedBold ? hb_font_create_sub_font(font.get()) :
                                         hb_font_reference(font.get()), hb_font_destroy);
   BitmapAdvance bitmapAdvance{face, float(size), float(size / metrics.designUnitsPerEm)};
-  if (bitmap) {
+  if (bitmap || simulatedBold) {
     auto* functions = hb_font_funcs_create();
-    hb_font_funcs_set_glyph_h_advance_func(functions, GdiAdvance, nullptr, nullptr);
+    hb_font_funcs_set_glyph_h_advance_func(functions, bitmap ? GdiAdvance : DesignAdvance, nullptr, nullptr);
     hb_font_set_funcs(shaping.get(), functions, &bitmapAdvance, nullptr);
     hb_font_funcs_destroy(functions);
   }
@@ -117,6 +122,8 @@ bool ShapeFont(const SelectedFont& selected, const FontInput& input,
   result->raw_advances.clear(); result->raw_offsets_x.clear(); result->raw_offsets_y.clear();
   result->glyph_clusters.clear();
   result->advances.assign(text.size(), 0); result->clusters.assign(text.size(), -1);
+  const int spacing = std::isfinite(input.letterSpacing)
+      ? int(std::floor(input.letterSpacing * input.scale * 60 + .5)) : 0;
   for (size_t i = 0; i < info.size(); ++i) {
     const auto cluster = info[i].cluster;
     if (cluster >= text.size()) return false;
@@ -140,10 +147,31 @@ bool ShapeFont(const SelectedFont& selected, const FontInput& input,
     result->advances[cluster] += width;
     result->clusters[cluster] = int(cluster);
     const double unit = size / metrics.designUnitsPerEm * 60;
-    ink.Include(result->advance + positions[i].x_offset * 60.0 / 65536 + gm.leftSideBearing * unit,
-        -positions[i].y_offset * 60.0 / 65536 + (gm.topSideBearing - gm.verticalOriginY) * unit,
-        (double(gm.advanceWidth)-gm.leftSideBearing-gm.rightSideBearing) * unit,
-        (double(gm.advanceHeight)-gm.topSideBearing-gm.bottomSideBearing) * unit);
+    // gfxTextRun::CompressedGlyph::IsSimpleGlyph: one glyph for one character,
+    // no offsets. Without TEXT_NEED_BOUNDING_BOX (OPTIMIZE_SPEED) a simple
+    // glyph only advances; detailed glyphs still bring their tight extents.
+    const bool detailed = positions[i].x_offset || positions[i].y_offset ||
+        (i > 0 && info[i-1].cluster == info[i].cluster) ||
+        (i + 1 < info.size() && info[i+1].cluster == info[i].cluster) ||
+        (i + 1 < info.size() ? info[i+1].cluster : unsigned(text.size())) - info[i].cluster > 1;
+    if (!input.optimizeSpeed || detailed) {
+      // gfxFont::MeasureGlyphs with LOOSE_INK_EXTENTS and gfxFont::SetupGlyphExtents:
+      // a glyph whose ink starts at or after its origin and stays inside the
+      // font's ascent/descent only widens the run horizontally (to the ceil of
+      // its ink right edge); any other glyph adds its tight rect.
+      const double glyph_x = result->advance + positions[i].x_offset * 60.0 / 65536;
+      const double bx = gm.leftSideBearing * unit;
+      const double by = -positions[i].y_offset * 60.0 / 65536 + (gm.topSideBearing - gm.verticalOriginY) * unit;
+      const double bw = (double(gm.advanceWidth) - gm.leftSideBearing - gm.rightSideBearing) * unit;
+      const double bh = (double(gm.advanceHeight) - gm.topSideBearing - gm.bottomSideBearing) * unit;
+      const bool contained = bx >= 0.0 && by >= -result->ascent && by + bh <= result->descent;
+      if (contained && bw > 0 && bh > 0) {
+        ink.Include(glyph_x, -result->ascent, std::ceil(bx + bw),
+                    result->ascent + result->descent);
+      } else {
+        ink.Include(glyph_x + bx, by, bw, bh);
+      }
+    }
     // The same glyph bounds as canvas text metrics report them: the tight rect
     // gfxRect(lsb, tsb - voy, w, h) scaled by the size in app units over the
     // design units per em, in app units like the run's own pen positions. The
@@ -159,14 +187,27 @@ bool ShapeFont(const SelectedFont& selected, const FontInput& input,
                     ink_unit * 60.0;
     result->ink.Union(bounds);
     result->advance += width;
+    // letter-spacing follows each cluster (its last glyph), in app units.
+    if (spacing != 0 && (i + 1 == info.size() || info[i + 1].cluster != cluster)) {
+      result->advance += spacing;
+      result->advances[cluster] += spacing;
+    }
   }
   for (size_t i = 1; i < text.size(); ++i)
     if (result->clusters[i] < 0) result->clusters[i] = result->clusters[i-1];
   ink.right = std::max(ink.right, double(result->advance));
+  // nsTextFrame::ReflowText: the frame's block size uses nsFontMetrics::MaxDescent,
+  // ComputeMaxDescent over the sanitized underline (gfxFont::SanitizeMetrics).
+  const double frame_descent =
+      FrameMaxDescent(metrics, double(conv), result->ascent / 60, result->descent / 60,
+                      face, double(float(std::round(size * 60.0) / 60.0))) * 60;
   const auto measurement = ruyijs::domain::geometry::ProjectInk(ink, result->advance, 0,
-      result->ascent, result->descent, input.scale, selected.syntheticItalic, input.x, input.y);
+      result->ascent, result->descent, input.scale, selected.syntheticItalic, input.x, input.y,
+      frame_descent);
   std::copy_n(measurement.box, 4, result->box.begin());
   std::copy_n(measurement.unrounded, 4, result->unrounded.begin());
   return true;
 }
 }
+
+#endif  // _WIN32

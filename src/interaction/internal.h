@@ -225,9 +225,15 @@ struct State {
   std::vector<std::unique_ptr<Event>> events;
   std::vector<std::shared_ptr<Listener>> listeners;
   std::unordered_map<uint64_t, domain::EventTargetAggregate*> targetMap;
+  // Object address to the live Target. Compaction is off for the runtime, so
+  // a borrowed node's address is stable until it is collected. A miss means
+  // the object is not attached; a hit whose record was released is dropped.
+  std::unordered_map<JSObject*, Target*> targetByObject;
   std::unordered_map<domain::ListenerId, domain::ListenerCallback> callbacks;
   std::chrono::steady_clock::time_point started = std::chrono::steady_clock::now();
   State(JSContext* context, JS::HandleObject global);
+  // An event's creation timestamp (Event::mEvent->mTimeStamp as a DOMHighRes time).
+  double EventTime(double clock_ms = -1) const;
   ~State();
   Target* target(JSObject* object);
   Event* event(JSObject* object);
@@ -248,6 +254,12 @@ struct State {
   // the address of invoke()'s rooted argument, restored when the call returns.
   const JS::Value* currentEvent = nullptr;
   bool (*brandPort)(void*, int, JS::HandleValue, bool*) = nullptr;
+  // The document clock (Scheduling): an event's creation time relative to the
+  // document's time origin (`clock_ms` < 0: now; otherwise a Scheduling clock
+  // time), and Event.timeStamp's precision reduction on that timeline.
+  double (*eventClock)(void*, double clock_ms) = nullptr;
+  double (*eventReduce)(void*, double ms) = nullptr;
+  void* eventClockContext = nullptr;
   void (*microtaskCheckpoint)(void*) = nullptr;
   void* microtaskContext = nullptr;
   void* brandContext = nullptr;
