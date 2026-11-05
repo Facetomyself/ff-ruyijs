@@ -18,6 +18,13 @@ const JSClass kEventClass = {"Event", JSCLASS_HAS_RESERVED_SLOTS(kEventSlotCount
 // runs during collection, so this must not grow the map.
 static void Retarget(State& state, Target* target, JSObject* previous, JSObject* now) {
   target->object = now;
+  // An owned target is found by scanning ownedTargets and reading live(),
+  // which follows the persistent root. Putting it in the address map is what
+  // made addEventListener miss after a minor GC.
+  if (target->owned) {
+    target->keyed = now;
+    return;
+  }
   if (!now) return;
   auto& map = state.targetByObject;
   if (previous && previous != now) {
@@ -75,10 +82,15 @@ State::~State() {
 Target* State::target(JSObject* object) {
   if (!object) return nullptr;
   auto found = targetByObject.find(object);
-  if (found == targetByObject.end()) return nullptr;
-  Target* value = found->second;
-  if (!value->released && value->live() == object) return value;
-  targetByObject.erase(found);
+  if (found != targetByObject.end()) {
+    Target* value = found->second;
+    if (!value->released && value->live() == object) return value;
+    // A moved borrowed wrapper can leave its old address here. Drop it so a
+    // reused address is not mistaken for that record.
+    targetByObject.erase(found);
+  }
+  for (Target* value : ownedTargets)
+    if (!value->released && value->live() == object) return value;
   return nullptr;
 }
 Event* State::event(JSObject* object) {
@@ -133,7 +145,8 @@ bool State::attach(JS::HandleObject object, bool owns, void** record) {
   if (owns && JS::GetClass(object) == &kTargetClass)
     JS::SetReservedSlot(object, 0, JS::PrivateValue(raw));
   targetMap.emplace(value->aggregate.id(), &value->aggregate);
-  targetByObject[object] = raw;
+  if (owns) ownedTargets.push_back(raw);
+  else targetByObject[object] = raw;
   if (record) *record = value.get();
   targets.push_back(std::move(value));
   return true;
@@ -146,10 +159,12 @@ void State::release(void* record) {
 void State::prune() {
   if (!anyReleased) return;
   anyReleased = false;
+  std::erase_if(ownedTargets, [](Target* value) { return value->released; });
   for (auto it = targets.begin(); it != targets.end();) {
     if ((*it)->released) {
       Target* raw = it->get();
       targetMap.erase(raw->aggregate.id());
+      // A borrowed record's key is the address RefreshBorrowed last reported.
       if (JSObject* key = raw->keyed ? raw->keyed : raw->object) {
         auto mapped = targetByObject.find(key);
         if (mapped != targetByObject.end() && mapped->second == raw)

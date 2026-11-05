@@ -85,6 +85,7 @@ Read on 2026-11-03. `git rev-parse` wins over this table.
 
 | Branch | Purpose | Status |
 | --- | --- | --- |
+| `sync/v0.3.4` | Open merge of upstream v0.3.4 (`6b6e0b9`, including `fae5b82`) into fork `main` | Temporary. Deleted after that merge is on `main` |
 | `main` | Three-platform trunk | `85ba2c2`, merge of the macOS lazy-helper PR |
 | `release/macos` | Fast-forward pointer of `main` | Same commit as `main` |
 | `tls/necko-core-arm64` | Fast-forward pointer of `main` | Same commit as `main`. No unique TLS commits |

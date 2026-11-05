@@ -230,11 +230,14 @@ struct State {
   std::vector<std::unique_ptr<Event>> events;
   std::vector<std::shared_ptr<Listener>> listeners;
   std::unordered_map<uint64_t, domain::EventTargetAggregate*> targetMap;
-  // Object address to the live Target. A borrowed node is rekeyed from its
-  // wrapper trace. A nursery EventTarget is rekeyed from its own trace. A
-  // miss means the object is not attached. prune() erases a released record
-  // by the key it stored, and a hit whose record was released is dropped.
+  // Borrowed node wrapper address to its Target. RefreshBorrowed moves the
+  // key with the object and does not allocate. Owned targets (script
+  // EventTargets, XMLHttpRequest, Window...) live in a persistent root that a
+  // collection updates without telling anyone, so they are not keyed by
+  // address: they stay in `ownedTargets`, which is short. live() reads that
+  // root.
   std::unordered_map<JSObject*, Target*> targetByObject;
+  std::vector<Target*> ownedTargets;
   std::unordered_map<domain::ListenerId, domain::ListenerCallback> callbacks;
   std::chrono::steady_clock::time_point started = std::chrono::steady_clock::now();
   State(JSContext* context, JS::HandleObject global);
