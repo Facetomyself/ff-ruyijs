@@ -2,7 +2,10 @@
 """Minimal guardrails for pull requests into main.
 
 Checks only documentation presence and coarse Apple-header guards.
-Does not build native code or touch donor trees.
+Does not build native code or touch donor trees, so it does not run
+tests/test_macos_runtime.py. That file needs a built shell. The wheel
+jobs run it: .github/workflows/build-macos.yml,
+.github/workflows/build-windows.yml, and ci/linux/build.sh test.
 Branch rules are docs/branching.md. docs/BRANCHES.md is the retired-ledger pointer.
 """
 

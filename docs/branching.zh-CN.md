@@ -85,8 +85,8 @@ python3.12 -B tools/build.py --donor-obj ../firefox-159/obj-js-standalone
 
 | 分支 | 用途 | 状态 |
 | --- | --- | --- |
-| `sync/v0.3.4` | 把上游 v0.3.4（`6b6e0b9`，含 `fae5b82`）合并进 fork `main` | 临时。这次合并进入 `main` 后删除 |
-| `main` | 三平台主干 | `85ba2c2`，macOS 惰性 helper 那次 PR 的合并 |
+| `sync/v0.3.4` | 把上游 v0.3.4（`6b6e0b9`，含 `fae5b82`）合并进 fork `main` | 已合并，`main` 为 `04426f6`（PR #23）。没有别的东西指向它之后可以删除。这次修改不删除该分支。 |
+| `main` | 三平台主干 | `04426f6`，v0.3.4 同步的合并 |
 | `release/macos` | `main` 的快进指针 | 与 `main` 同一提交 |
 | `tls/necko-core-arm64` | `main` 的快进指针 | 与 `main` 同一提交。没有独有的 TLS 提交 |
 | `macos-core-proxy` | 旧的代理试验 | 顶端 `302565c`。已在上游。没有独有提交 |
