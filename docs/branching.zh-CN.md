@@ -69,7 +69,27 @@ python3.12 -B tools/build.py --donor-obj ../firefox-159/obj-js-standalone
 
 `MACOSX_DEPLOYMENT_TARGET=26.0`。donor 树放在仓库外面。写明实际跑了什么（导入、`dist/js` 求值、一次页面加载）。Apple 头文件留在 `#ifndef _WIN32` 里，或 `#ifdef _WIN32` 的 `#else` 里。仍属于 macOS 底线、而不属于分支流程的细节留在 [macos-baseline.md](macos-baseline.md)。
 
-**Windows。** 本 fork 没有 Windows 机器，合并前也没有人做从源码开始的 Windows 验收。推到 `main` 会启动 [`.github/workflows/wheels.yml`](../.github/workflows/wheels.yml)，在 GitHub 托管的 runner 上构建 Windows、macOS 和 Linux 的 wheel。[`.github/workflows/ci.yml`](../.github/workflows/ci.yml) 在 `windows-latest` 上对已发布的 wheel 做冒烟。这是目前唯一的 Windows 信号，不是维护者在本机跑的一步。
+**Windows。** 本 fork 没有 Windows 机器，也没有人在本地做 Windows 验收。唯一的 Windows 信号来自 GitHub Actions，按需手动运行（见下一节）。[`.github/workflows/ci.yml`](../.github/workflows/ci.yml) 还会对每个 pull request 和推到 `main` 的提交，在 `windows-latest` 上对已发布的 wheel 做冒烟。
+
+## GitHub Actions
+
+fork 的 Actions 额度有限。macOS 和 Linux 在维护者自己的机器上验收，所以 Actions 不构建它们。
+
+| 工作流 | 何时运行 | 用途 |
+| --- | --- | --- |
+| `ci.yml`、`mac-pr.yml` | 每个 pull request 和推到 `main` | 便宜的检查（Python lint、守卫、wheel 冒烟）。保持开启。 |
+| `build-windows.yml` | 只能手动 | Windows 从源码构建及其测试。唯一的 Windows 验收。 |
+| `wheels.yml` | 只能手动。Windows 默认勾选，macOS 和 Linux 默认不勾 | 发版打 wheel。只有发版才勾 macOS 和 Linux。 |
+| `build-macos.yml`、`build-linux.yml` | 只能手动 | 不做日常使用。用上面的 macOS 和 Linux 步骤。 |
+
+规则：
+
+1. 推送不触发构建。表里没有任何工作流会因 pull request 或推送而启动平台构建。
+2. 只有改动可能影响 Windows 时，才从 `main` 或 PR 分支手动运行 `build-windows.yml`：`src/`、`CMakeLists.txt`、`tools/`、Windows 工作流或其测试、上游同步、发版。只改文档或只改 macOS 的不需要。
+3. 每个改动跑一次，不是每次推送跑一次。还在返工的改动等到定稿再跑。不再需要的运行要取消。
+4. 把 Windows 运行的链接和结果写进 PR 描述；没跑就写明没跑。
+5. 不要用 Actions 的 macOS 或 Linux 构建来验收改动。如果 Actions 和本地结果不一致，只跑一次对应构建来复现，并把两边结果都写出来。
+6. 发版是唯一一次三个平台都在 Actions 上构建，通过 `wheels.yml` 勾选所有平台。
 
 ## 向上游贡献
 
