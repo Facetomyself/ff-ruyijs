@@ -24,7 +24,7 @@ void Finalize(JS::GCContext*,JSObject* object) {
 void Trace(JSTracer*,JSObject* object) {
   auto* record=Record(object);
   if (record && record->owner && record->target)
-    static_cast<Target*>(record->target)->object=object;
+    record->owner->RetargetBorrowed(static_cast<Target*>(record->target), object);
 }
 const JSClassOps kOps={nullptr,nullptr,nullptr,nullptr,nullptr,nullptr,Finalize,nullptr,nullptr,Trace};
 }

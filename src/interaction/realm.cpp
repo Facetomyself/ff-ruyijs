@@ -14,43 +14,12 @@ static thread_local uint64_t nextTarget = 0;
 static thread_local unsigned boundMonitors = 0;
 bool MonitorBound() { return boundMonitors != 0; }
 const JSClass kEventClass = {"Event", JSCLASS_HAS_RESERVED_SLOTS(kEventSlotCount)};
-// Moves one record's map node onto `now` without allocating. A trace hook
-// runs during collection, so this must not grow the map.
-static void Retarget(State& state, Target* target, JSObject* previous, JSObject* now) {
-  target->object = now;
-  // An owned target is found by scanning ownedTargets and reading live(),
-  // which follows the persistent root. Putting it in the address map is what
-  // made addEventListener miss after a minor GC.
-  if (target->owned) {
-    target->keyed = now;
-    return;
-  }
-  if (!now) return;
-  auto& map = state.targetByObject;
-  if (previous && previous != now) {
-    auto found = map.find(previous);
-    if (found != map.end() && found->second == target) {
-      auto node = map.extract(found);
-      node.key() = now;
-      auto inserted = map.insert(std::move(node));
-      if (!inserted.inserted && inserted.node) {
-        inserted.node.key() = previous;
-        map.insert(std::move(inserted.node));
-        return;
-      }
-      target->keyed = now;
-      return;
-    }
-  }
-  if (map.find(now) == map.end()) map.emplace(now, target);
-  target->keyed = now;
-}
 static void TraceTarget(JSTracer*, JSObject* object) {
   const JS::Value slot = JS::GetReservedSlot(object, 0);
   if (slot.isUndefined()) return;
   auto* target = static_cast<Target*>(slot.toPrivate());
   if (!target || !target->realm || target->released) return;
-  Retarget(*target->realm, target, target->keyed ? target->keyed : target->object, object);
+  target->realm->RetargetBorrowed(target, object);
 }
 const JSClassOps kTargetOps = {nullptr, nullptr, nullptr, nullptr, nullptr, nullptr,
                                nullptr, nullptr, nullptr, TraceTarget};
@@ -79,6 +48,122 @@ State::~State() {
   while (*link && *link != this) link = &(*link)->previous;
   if (*link) *link = previous;
 }
+void State::NoteUnkeyed(Target* target) {
+  if (!target || target->unkeyed) return;
+  target->unkeyed = true;
+  target->unkeyedNext = unkeyed;
+  unkeyed = target;
+}
+void State::UnlinkUnkeyed(Target* target) {
+  if (!target || !target->unkeyed) return;
+  Target** link = &unkeyed;
+  while (*link && *link != target) link = &(*link)->unkeyedNext;
+  if (*link) *link = target->unkeyedNext;
+  target->unkeyedNext = nullptr;
+  target->unkeyed = false;
+}
+Target* State::AdoptUnkeyed(JSObject* object) {
+  for (Target** link = &unkeyed; *link;) {
+    Target* value = *link;
+    if (value->released || value->live() != object) {
+      link = &value->unkeyedNext;
+      continue;
+    }
+    *link = value->unkeyedNext;
+    value->unkeyedNext = nullptr;
+    value->unkeyed = false;
+    // Outside a trace hook, so inserting a map node is allowed.
+    targetByObject.insert_or_assign(object, value);
+    value->object = object;
+    value->keyed = object;
+    return value;
+  }
+  return nullptr;
+}
+void State::RetargetBorrowed(Target* target, JSObject* now) {
+  if (!target) return;
+  // Owned targets are found by scanning ownedTargets and reading live(),
+  // which follows the persistent root. They are not address-keyed.
+  if (target->owned) {
+    target->object = now;
+    target->keyed = now;
+    return;
+  }
+  JSObject* previous = target->keyed ? target->keyed : target->object;
+  if (!now || !previous || previous == now) {
+    target->object = now;
+    auto found = now ? targetByObject.find(now) : targetByObject.end();
+    if (found != targetByObject.end() && found->second == target) {
+      target->keyed = now;
+      UnlinkUnkeyed(target);
+      return;
+    }
+    // No node to slide onto `now`. Leave the record off the map until
+    // target() adopts it. emplace here would allocate during collection.
+    target->keyed = nullptr;
+    NoteUnkeyed(target);
+    return;
+  }
+  auto found = targetByObject.find(previous);
+  if (found == targetByObject.end() || found->second != target) {
+    target->object = now;
+    target->keyed = nullptr;
+    NoteUnkeyed(target);
+    return;
+  }
+  auto node = targetByObject.extract(found);
+  node.key() = now;
+  auto inserted = targetByObject.insert(std::move(node));
+  if (inserted.inserted) {
+    target->object = now;
+    target->keyed = now;
+    UnlinkUnkeyed(target);
+    return;
+  }
+  Target* occupant = inserted.position->second;
+  const bool replace = !occupant || occupant == target || occupant->released || occupant->live() != now;
+  if (!replace) {
+    // `now` already names a live borrowed target. Put this node back on its
+    // old key and keep object and key the same, so a later lookup of `now`
+    // does not erase the occupant.
+    if (inserted.node) {
+      inserted.node.key() = previous;
+      targetByObject.insert(std::move(inserted.node));
+    }
+    target->object = previous;
+    target->keyed = previous;
+    UnlinkUnkeyed(target);
+    return;
+  }
+  auto occupied = targetByObject.extract(inserted.position);
+  Target* displaced = occupied ? occupied.mapped() : nullptr;
+  if (!inserted.node) {
+    if (occupied) targetByObject.insert(std::move(occupied));
+    target->object = previous;
+    target->keyed = previous;
+    UnlinkUnkeyed(target);
+    return;
+  }
+  auto placed = targetByObject.insert(std::move(inserted.node));
+  if (!placed.inserted) {
+    if (placed.node) {
+      placed.node.key() = previous;
+      targetByObject.insert(std::move(placed.node));
+    }
+    if (occupied) targetByObject.insert(std::move(occupied));
+    target->object = previous;
+    target->keyed = previous;
+    UnlinkUnkeyed(target);
+    return;
+  }
+  target->object = now;
+  target->keyed = now;
+  UnlinkUnkeyed(target);
+  if (displaced && displaced != target) {
+    displaced->keyed = nullptr;
+    NoteUnkeyed(displaced);
+  }
+}
 Target* State::target(JSObject* object) {
   if (!object) return nullptr;
   auto found = targetByObject.find(object);
@@ -89,6 +174,7 @@ Target* State::target(JSObject* object) {
     // reused address is not mistaken for that record.
     targetByObject.erase(found);
   }
+  if (Target* adopted = AdoptUnkeyed(object)) return adopted;
   for (Target* value : ownedTargets)
     if (!value->released && value->live() == object) return value;
   return nullptr;
@@ -163,6 +249,7 @@ void State::prune() {
   for (auto it = targets.begin(); it != targets.end();) {
     if ((*it)->released) {
       Target* raw = it->get();
+      UnlinkUnkeyed(raw);
       targetMap.erase(raw->aggregate.id());
       // A borrowed record's key is the address RefreshBorrowed last reported.
       if (JSObject* key = raw->keyed ? raw->keyed : raw->object) {
@@ -231,8 +318,7 @@ bool Realm::AttachBorrowed(JS::HandleObject object, void** record) {
 void Realm::ReleaseBorrowed(void* record) { state_->release(record); }
 void Realm::RefreshBorrowed(void* record, JSObject* object) {
   if (!record || !state_) return;
-  auto* target = static_cast<Target*>(record);
-  Retarget(*state_, target, target->keyed ? target->keyed : target->object, object);
+  state_->RetargetBorrowed(static_cast<Target*>(record), object);
 }
 void Realm::SetPathResolver(PathResolver callback, RetargetResolver retarget, void* context) {
   state_->pathResolver = callback;

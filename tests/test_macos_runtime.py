@@ -338,6 +338,82 @@ def owned_targets_after_minor_gc(context):
 
 
 @case
+def close_watcher_after_minor_gc(context):
+    """A borrowed CloseWatcher stays findable after a minor GC.
+
+    Its trace hook must move the targetByObject key with the wrapper.
+    Updating only target->object leaves the new address missing and the
+    next lookup erases the stale key.
+    """
+    context.load_page("https://test.local/", "<html><body></body></html>")
+    try:
+        context.eval("globalThis.__watcher = new CloseWatcher()")
+    except Exception as error:
+        return False, str(error)[:200]
+    context.eval("""
+      const junk = [];
+      for (let r = 0; r < 6; r++) {
+        const batch = [];
+        for (let i = 0; i < 100000; i++) batch.push({i});
+        junk.push(batch.length);
+      }
+    """)
+    context.collect_garbage()
+    try:
+        fired = context.eval("""
+          (() => {
+            let n = 0;
+            __watcher.addEventListener('ping', () => { n++; });
+            __watcher.dispatchEvent(new Event('ping'));
+            return n === 1;
+          })()
+        """)
+    except Exception as error:
+        return False, str(error)[:200]
+    return fired is True
+
+
+@case
+def borrowed_watchers_stay_distinct_after_gc(context):
+    """Several borrowed CloseWatchers each keep their own listener after GC.
+
+    A trace that finds the new address already taken must not drop both
+    records. Script cannot force two wrappers onto one address (compacting
+    GC is off), so this checks the lookup those records use: after a minor
+    GC every watcher still accepts one listener and fires once.
+    """
+    context.load_page("https://test.local/", "<html><body></body></html>")
+    try:
+        context.eval("""
+          globalThis.__watchers = [];
+          for (let i = 0; i < 8; i++) __watchers.push(new CloseWatcher());
+        """)
+    except Exception as error:
+        return False, str(error)[:200]
+    context.eval("""
+      const junk = [];
+      for (let r = 0; r < 4; r++) {
+        const batch = [];
+        for (let i = 0; i < 80000; i++) batch.push({i});
+        junk.push(batch.length);
+      }
+    """)
+    context.collect_garbage()
+    try:
+        fired = context.eval("""
+          __watchers.every((watcher) => {
+            let n = 0;
+            watcher.addEventListener('ping', () => { n++; });
+            watcher.dispatchEvent(new Event('ping'));
+            return n === 1;
+          })
+        """)
+    except Exception as error:
+        return False, str(error)[:200]
+    return fired is True
+
+
+@case
 def computed_style_invalidation(context):
     """A cached computed style must change after style, class, attribute and tree edits."""
     context.load_page("https://test.local/", "<html><body></body></html>")

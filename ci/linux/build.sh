@@ -11,7 +11,8 @@
 #   ci/linux/build.sh wheel    the manylinux wheel                -> wheelhouse/
 #   ci/linux/build.sh test     installs the wheel in a fresh venv; ci/smoke_test.py,
 #                              ci/atob_check.py, ci/network_smoke.py, ci/proxy_smoke.py,
-#                              ci/hello_check.py and ci/engine_check.py
+#                              ci/hello_check.py, ci/engine_check.py and
+#                              tests/test_macos_runtime.py
 set -euo pipefail
 step="${1:?usage: build.sh deps|donor|shell|necko|wheel|test}"
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -92,7 +93,8 @@ case "$step" in
     # The ClientHello must be Firefox 159's (ci/firefox159-hello.json).
     "${clean[@]}" "$venv/bin/python" "$root/ci/hello_check.py"
     # Several Contexts as sessions of one shared engine process.
-    "${clean[@]}" "$venv/bin/python" "$root/ci/engine_check.py" --network ;;
+    "${clean[@]}" "$venv/bin/python" "$root/ci/engine_check.py" --network
+    "${clean[@]}" "$venv/bin/python" "$root/tests/test_macos_runtime.py" ;;
   *)
     echo "unknown step: $step" >&2; exit 1 ;;
 esac

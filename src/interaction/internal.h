@@ -140,8 +140,12 @@ struct Target {
   JSObject* keyed = nullptr;
   const bool owned;
   bool released = false;
+  // Borrowed records whose map node could not be moved during a trace. The
+  // link is an intrusive list so the trace hook does not allocate.
+  bool unkeyed = false;
+  Target* unkeyedNext = nullptr;
   Target(JSContext* cx, JS::HandleObject value, uint64_t id, bool owns)
-      : object(value), keyed(value), root(cx), aggregate(id), owned(owns) {
+      : object(value), root(cx), aggregate(id), keyed(value), owned(owns) {
     if (owns) root.set(value);
   }
   // The object the engine holds right now. An owned object is read back from
@@ -230,14 +234,17 @@ struct State {
   std::vector<std::unique_ptr<Event>> events;
   std::vector<std::shared_ptr<Listener>> listeners;
   std::unordered_map<uint64_t, domain::EventTargetAggregate*> targetMap;
-  // Borrowed node wrapper address to its Target. RefreshBorrowed moves the
-  // key with the object and does not allocate. Owned targets (script
-  // EventTargets, XMLHttpRequest, Window...) live in a persistent root that a
-  // collection updates without telling anyone, so they are not keyed by
-  // address: they stay in `ownedTargets`, which is short. live() reads that
-  // root.
+  // Borrowed node wrapper address to its Target. A trace moves an existing
+  // map node and does not insert one: growing the map allocates, and a trace
+  // hook runs during collection. A record that lost its node waits on
+  // `unkeyed` until the next target() lookup, which is outside the GC.
+  // Owned targets (script EventTargets, XMLHttpRequest, Window...) live in a
+  // persistent root that a collection updates without telling anyone, so they
+  // are not keyed by address: they stay in `ownedTargets`, which is short.
+  // live() reads that root.
   std::unordered_map<JSObject*, Target*> targetByObject;
   std::vector<Target*> ownedTargets;
+  Target* unkeyed = nullptr;
   std::unordered_map<domain::ListenerId, domain::ListenerCallback> callbacks;
   std::chrono::steady_clock::time_point started = std::chrono::steady_clock::now();
   State(JSContext* context, JS::HandleObject global);
@@ -245,6 +252,12 @@ struct State {
   double EventTime(double clock_ms = -1) const;
   ~State();
   Target* target(JSObject* object);
+  // Follows a moved borrowed wrapper. Does not allocate. Owned records only
+  // update their object pointer; lookup reads the persistent root.
+  void RetargetBorrowed(Target* target, JSObject* now);
+  void NoteUnkeyed(Target* target);
+  void UnlinkUnkeyed(Target* target);
+  Target* AdoptUnkeyed(JSObject* object);
   Event* event(JSObject* object);
   Event* event(domain::DomEvent& value);
   JSObject* targetObject(uint64_t id);
