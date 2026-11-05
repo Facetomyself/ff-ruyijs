@@ -259,13 +259,10 @@ def advance_determinism(context):
 def listener_after_minor_gc(context):
     """A target wrapped before a minor GC must still be that same target.
 
-    Node wrappers are tenured: the class has a finalizer and is not
-    nursery-allocatable, and compacting GC is off, so a div does not move.
-    ``new EventTarget()`` is nursery-allocated. attach() records that address.
-    Filling the nursery promotes it. addEventListener then looks the object up
-    by its new address and must find the original record, not throw and not
-    install a second target. Allocating the node wrappers is what forces the
-    collection between wrap and the later addEventListener.
+    A borrowed node wrapper is rekeyed from its trace hook. An owned
+    ``new EventTarget()`` is not indexed by address: a minor GC moves it
+    inside its persistent root without a notice, and lookup reads that root
+    from the short owned list. addEventListener must find the original record.
     """
     context.load_page("https://test.local/", "<html><body></body></html>")
     context.eval("""
@@ -293,6 +290,46 @@ def listener_after_minor_gc(context):
               return n;
             };
             return check(__node) === 1 && check(__target) === 1;
+          })()
+        """)
+    except Exception as error:
+        return False, str(error)[:200]
+    return fired is True
+
+
+@case
+def owned_targets_after_minor_gc(context):
+    """Owned targets still accept listeners after a minor GC.
+
+    Script EventTarget, XMLHttpRequest and Window live in persistent roots.
+    They are not in the borrowed-wrapper address map. After the nursery is
+    filled, addEventListener must not throw 'EventTarget receiver is
+    incompatible'.
+    """
+    context.load_page("https://test.local/", "<html><body></body></html>")
+    context.eval("""
+      globalThis.__target = new EventTarget();
+      globalThis.__xhr = new XMLHttpRequest();
+    """)
+    context.eval("""
+      const junk = [];
+      for (let r = 0; r < 6; r++) {
+        const batch = [];
+        for (let i = 0; i < 100000; i++) batch.push({i});
+        junk.push(batch.length);
+      }
+    """)
+    context.collect_garbage()
+    try:
+        fired = context.eval("""
+          (() => {
+            const check = (obj) => {
+              let n = 0;
+              obj.addEventListener('ping', () => { n++; });
+              obj.dispatchEvent(new Event('ping'));
+              return n;
+            };
+            return check(__target) === 1 && check(__xhr) === 1 && check(window) === 1;
           })()
         """)
     except Exception as error:
