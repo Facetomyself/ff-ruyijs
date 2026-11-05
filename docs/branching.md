@@ -69,7 +69,27 @@ python3.12 -B tools/build.py --donor-obj ../firefox-159/obj-js-standalone
 
 `MACOSX_DEPLOYMENT_TARGET=26.0`. The donor tree stays outside the repository. Say what was actually run (import, `dist/js` eval, a page load). Apple headers stay inside `#ifndef _WIN32` or the `#else` of `#ifdef _WIN32`. Details that are still the macOS floor, not the branch procedure, stay in [macos-baseline.md](macos-baseline.md).
 
-**Windows.** This fork has no Windows machine and no one runs a from-source Windows check before merge. A push to `main` starts [`.github/workflows/wheels.yml`](../.github/workflows/wheels.yml), which builds Windows, macOS, and Linux wheels on GitHub-hosted runners. [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) smokes the published wheel on `windows-latest`. That is the only Windows signal. It is not a local verification step.
+**Windows.** This fork has no Windows machine and no one runs a from-source Windows check locally. The only Windows signal is GitHub Actions, run on request (next section). [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) also smokes the published wheel on `windows-latest` for every pull request and push to `main`.
+
+## GitHub Actions
+
+The fork's Actions minutes are limited. macOS and Linux are verified on the maintainer's own machines, so Actions does not build them.
+
+| Workflow | Runs when | Use |
+| --- | --- | --- |
+| `ci.yml`, `mac-pr.yml` | Every pull request and push to `main` | Cheap checks (Python lint, guards, wheel smoke). Leave them on. |
+| `build-windows.yml` | Manual only | The Windows from-source build and its tests. The only Windows verification. |
+| `wheels.yml` | Manual only. Windows is on by default, macOS and Linux are off | Cutting release wheels. Tick macOS and Linux only for a release. |
+| `build-macos.yml`, `build-linux.yml` | Manual only | Not for routine use. Use the macOS and Linux steps above. |
+
+Rules:
+
+1. Nothing builds on push. No workflow in the table starts a platform build from a pull request or a push.
+2. Run `build-windows.yml` by hand from `main` or the pull request branch only when the change can affect Windows: `src/`, `CMakeLists.txt`, `tools/`, the Windows workflow or its tests, a sync from upstream, or a release. Docs-only and macOS-only changes do not need it.
+3. Run it once per change, not once per push. A change that is still being reworked waits until it is ready. Cancel a run that is no longer needed.
+4. Put the Windows run link and result in the pull request description, or say it did not run.
+5. Do not run macOS or Linux builds on Actions to check a change. If Actions disagrees with a local result, run that build once to reproduce it, and report both.
+6. A release is the only time all three platforms build on Actions, through `wheels.yml` with every platform ticked.
 
 ## Contributing upstream
 
