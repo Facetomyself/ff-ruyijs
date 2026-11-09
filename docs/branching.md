@@ -105,7 +105,7 @@ Read on 2026-11-03. `git rev-parse` wins over this table.
 
 | Branch | Purpose | Status |
 | --- | --- | --- |
-| `sync/0ab7201` | Open merge of upstream v0.3.5 (`0ab7201`) into fork `main` | Temporary. Deleted after that merge is on `main`. |
+| `sync/0ab7201` | Open merge of upstream into fork `main`. Started at v0.3.5 (`0ab7201`); now also includes v0.3.6 (`3c3771e`) | Temporary. Deleted after that merge is on `main`. |
 | `sync/v0.3.4` | Merge of upstream v0.3.4 (`6b6e0b9`, including `fae5b82`) | Merged into `main` at `04426f6` (PR #23). The branch can be deleted once nothing else points at it. This change does not delete it. |
 | `main` | Three-platform trunk | `6251601`, the jemalloc `MOZ_MEMORY` guard |
 | `release/macos` | Fast-forward pointer of `main` | Same commit as `main` |
