@@ -11,6 +11,7 @@
 #   ci/linux/build.sh wheel    the manylinux wheel                -> wheelhouse/
 #   ci/linux/build.sh test     installs the wheel in a fresh venv; ci/smoke_test.py,
 #                              ci/dom_id_index_check.py, ci/dom_tag_ns_check.py,
+#                              ci/dom_id_fastpath_check.py, ci/worker_blob_message_check.py,
 #                              ci/atob_check.py, ci/fetch_abort_check.py, ci/load_timer_check.py,
 #                              ci/network_smoke.py, ci/proxy_smoke.py, ci/hello_check.py,
 #                              ci/engine_check.py and tests/test_macos_runtime.py
@@ -89,6 +90,10 @@ case "$step" in
     # getElementById's id index, and document.getElementsByTagNameNS.
     "${clean[@]}" "$venv/bin/python" "$root/ci/dom_id_index_check.py"
     "${clean[@]}" "$venv/bin/python" "$root/ci/dom_tag_ns_check.py"
+    # Document querySelector('#id') and HTMLCollection.namedItem id fast paths.
+    "${clean[@]}" "$venv/bin/python" "$root/ci/dom_id_fastpath_check.py"
+    # Blob Worker postMessage round trip. advance() must wait for the child.
+    "${clean[@]}" "$venv/bin/python" "$root/ci/worker_blob_message_check.py"
     "${clean[@]}" "$venv/bin/python" "$root/ci/atob_check.py"
     "${clean[@]}" "$venv/bin/python" "$root/ci/fetch_abort_check.py"
     "${clean[@]}" "$venv/bin/python" "$root/ci/load_timer_check.py"
