@@ -246,6 +246,22 @@ def query_list_and_id_index(context):
           and result.get("secondIs") == "second" and result.get("live"))
     return ok, result
 
+
+@case
+def get_element_by_id_skips_detached(context):
+    """getElementById ignores an element that still has the id after removal."""
+    context.load_page("https://test.local/", "<html><body></body></html>")
+    result = context.eval("""
+      const el = document.createElement('div');
+      el.id = 'gone';
+      document.body.appendChild(el);
+      const live = document.getElementById('gone') === el;
+      el.remove();
+      ({live, after: document.getElementById('gone') === null, id: el.id})
+    """)
+    return result.get("live") is True and result.get("after") is True and result.get("id") == "gone", result
+
+
 @case
 def advance_determinism(context):
     # The logical clock drives timers; advance() flushes the loop.
