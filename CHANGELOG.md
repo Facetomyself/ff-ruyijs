@@ -3,6 +3,27 @@
 All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Changed
+
+- Geometry reads after an inline style or attribute change reuse the unchanged parts of the last layout
+  instead of laying out the whole page again: 1,500 siblings, `offsetHeight` after `setAttribute` 213 ms
+  to 0.5 ms (#13, PR #33 by ladydd).
+
+### Fixed
+
+- Changing a text node with `data`, `nodeValue`, `appendData`, `replaceData` and the other CharacterData
+  methods updates later geometry reads; they returned the layout from before the change.
+
+## [0.3.7] - 2026-11-10
+
+### Fixed
+
+- Page timers, posted messages and animation frames run while the `load` event waits on slow images or style
+  sheets. A 50 ms `setTimeout` on a page with a 2 s image ran after the image and after `load`; it now runs
+  at about 50 ms, and `load` still fires once the image is done, as in Firefox (#31).
+
 ## [0.3.6] - 2026-11-07
 
 ### Fixed
