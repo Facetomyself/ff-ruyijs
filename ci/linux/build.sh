@@ -10,6 +10,7 @@
 #                              (tools/build_necko_linux.py --http3; Python 3.14)
 #   ci/linux/build.sh wheel    the manylinux wheel                -> wheelhouse/
 #   ci/linux/build.sh test     installs the wheel in a fresh venv; ci/smoke_test.py,
+#                              ci/dom_id_index_check.py, ci/dom_tag_ns_check.py,
 #                              ci/atob_check.py, ci/fetch_abort_check.py, ci/load_timer_check.py,
 #                              ci/network_smoke.py, ci/proxy_smoke.py, ci/hello_check.py,
 #                              ci/engine_check.py and tests/test_macos_runtime.py
@@ -85,6 +86,9 @@ case "$step" in
     "${clean[@]}" "$venv/bin/python" "$root/ci/helper_check.py"
     # Geometry after a mutation equals a fresh layout of the mutated page.
     "${clean[@]}" "$venv/bin/python" "$root/ci/layout_check.py"
+    # getElementById's id index, and document.getElementsByTagNameNS.
+    "${clean[@]}" "$venv/bin/python" "$root/ci/dom_id_index_check.py"
+    "${clean[@]}" "$venv/bin/python" "$root/ci/dom_tag_ns_check.py"
     "${clean[@]}" "$venv/bin/python" "$root/ci/atob_check.py"
     "${clean[@]}" "$venv/bin/python" "$root/ci/fetch_abort_check.py"
     "${clean[@]}" "$venv/bin/python" "$root/ci/load_timer_check.py"
