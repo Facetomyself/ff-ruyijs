@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Linux x86_64 build of ruyijs against the Firefox 159.0 source in firefox/
+# Linux x86_64 build of ruyijs against the Firefox 160.0 source in firefox/
 # (the submodule; FIREFOX_SOURCE overrides the location). Each step is one step
 # of ci/linux/build-linux.yml; run them in order on Ubuntu 24.04:
 #
@@ -12,7 +12,8 @@
 #   ci/linux/build.sh test     installs the wheel in a fresh venv; ci/smoke_test.py,
 #                              ci/dom_id_index_check.py, ci/dom_tag_ns_check.py,
 #                              ci/dom_id_fastpath_check.py, ci/worker_blob_message_check.py,
-#                              ci/atob_check.py, ci/fetch_abort_check.py, ci/load_timer_check.py,
+#                              ci/atob_check.py, ci/fetch_abort_check.py,
+#                              ci/fetch_abort_transfer_check.py, ci/load_timer_check.py,
 #                              ci/network_smoke.py, ci/proxy_smoke.py, ci/hello_check.py,
 #                              ci/engine_check.py and tests/test_macos_runtime.py
 set -euo pipefail
@@ -96,12 +97,13 @@ case "$step" in
     "${clean[@]}" "$venv/bin/python" "$root/ci/worker_blob_message_check.py"
     "${clean[@]}" "$venv/bin/python" "$root/ci/atob_check.py"
     "${clean[@]}" "$venv/bin/python" "$root/ci/fetch_abort_check.py"
+    "${clean[@]}" "$venv/bin/python" "$root/ci/fetch_abort_transfer_check.py"
     "${clean[@]}" "$venv/bin/python" "$root/ci/load_timer_check.py"
     # One real page load through the bundled Necko helper, direct and through
     # a local CONNECT proxy.
     "${clean[@]}" "$venv/bin/python" "$root/ci/network_smoke.py"
     "${clean[@]}" "$venv/bin/python" "$root/ci/proxy_smoke.py"
-    # The ClientHello must be Firefox 159's (ci/firefox159-hello.json).
+    # The ClientHello must be Firefox 160's (ci/firefox160-hello.json).
     "${clean[@]}" "$venv/bin/python" "$root/ci/hello_check.py"
     # Several Contexts as sessions of one shared engine process.
     "${clean[@]}" "$venv/bin/python" "$root/ci/engine_check.py" --network
