@@ -5,6 +5,42 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-11-16
+
+### Added
+
+- SOCKS proxies on Windows and Linux: `Context(proxy=...)` accepts `socks5://`, `socks5h://`, `socks4://`
+  and `socks4a://` URLs, with `socks5://user:pass@host:port` for username/password authentication
+  (RFC 1928/1929), as Firefox speaks them. Only HTTP(S) proxy URLs were accepted, although the README
+  listed SOCKS5 (#39). `ci/socks_proxy_check.py` loads pages through a local SOCKS server; the Windows
+  runtime now takes `ruyijs_necko/oneshot.py` from the repository, as Linux and macOS do.
+
+### Fixed
+
+- A Wildberries (wbaas / Guardium) challenge scored every ruyijs session risk 100 and kept the seller
+  page at 498; it now scores 15, as Firefox 160 does on the same network, and the page loads (#42). The
+  challenge measures the page, and these read differently from Firefox:
+  - `getComputedStyle` returned specified values for a rendered element's `width`, `height`, `padding-*`,
+    `margin-*` and insets (`calc(33.3% + 0.7px)`, `25%`, `auto`); it returns the used pixel values.
+  - `white-space: pre` collapsed runs of spaces when measuring; text in a narrow block never wrapped, so
+    a block was always one line tall.
+  - A float and a table filled their containing block instead of shrinking to fit; a table had no row
+    and cell layout (cells stacked as blocks, no `border-spacing`, no UA cell padding).
+  - `aspect-ratio` did not size a box with an auto height.
+  - `HTMLProgressElement.value`, `max` and `position` threw.
+  `ci/layout_fingerprint_check.py` compares these against Firefox 160's values.
+- `nodeType`, `tagName` and the other Node and Element property reads no longer slow down with the node's
+  position among its siblings: each read built a full snapshot, including a scan of the parent's
+  children, and every property lookup on a node asked whether it is a form. 32,768 siblings, 100,000
+  `nodeType` reads of the last child: 2,268 ms to 28 ms (#35).
+
+- Registering, clearing and running many timers no longer slows down with the square of their number: every
+  `setTimeout` re-sorted the whole task queue, and lookup, `clearTimeout` and completion scanned it and the
+  callback list. The queue is now indexed by task id and kept in deadline order, and callbacks are indexed by
+  id and by public handle; the run order is unchanged. 8,000 timers on the logical clock: register 945 ms to
+  13 ms, clear 984 ms to 7 ms, run 1,309 ms to 12 ms (#34). `ci/timer_scale_check.py` checks the scaling on
+  Windows, macOS and Linux.
+
 ## [0.4.0] - 2026-11-14
 
 ### Changed

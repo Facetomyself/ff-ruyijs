@@ -13,6 +13,9 @@
 #include "document_model/state.h"
 #include "js/Wrapper.h"
 
+#include <cmath>
+#include <cstdio>
+#include <cstdlib>
 #include <memory>
 #include <vector>
 
@@ -31,6 +34,63 @@ std::string BuildComputedBlock(const ComputedStyle& computed) {
   }
   block += computed.customsText;
   return block;
+}
+
+// A used length as Firefox serializes it: px, up to six significant digits
+// after rounding to app units (1/60 px), no trailing zeros.
+std::string UsedPixels(double value) {
+  value = std::round(value * 60) / 60;
+  char buffer[48];
+  std::snprintf(buffer, sizeof buffer, "%.6g", value);
+  std::string text(buffer);
+  if (text == "-0") text = "0";
+  return text + "px";
+}
+// Whether a computed value is a plain absolute length ("21.44px", "0px"),
+// which Firefox returns as computed rather than as the used value.
+bool PlainLength(const std::string& value) {
+  if (value.size() < 3 || value.compare(value.size() - 2, 2, "px")) return false;
+  char* end = nullptr;
+  std::strtod(value.c_str(), &end);
+  return end == value.c_str() + value.size() - 2;
+}
+// CSSOM resolved values (§9.1), as nsComputedDOMStyle gives them for a
+// rendered element: width and height are always the used size; a margin,
+// padding or inset is the used value only when its computed value is not a
+// plain length (a percentage, calc(), auto), so an em margin stays 21.44px
+// and a collapsed body margin stays its own 8px (#42).
+void ResolveUsed(State& state, JS::HandleObject element, ComputedStyle* computed) {
+  if (!state.usedBoxPort) return;
+  UsedBox used;
+  bool present = false;
+  if (!state.usedBoxPort(state.usedBoxContext, element, &used, &present)) {
+    JS_ClearPendingException(state.cx);
+    return;
+  }
+  if (!present) return;
+  static const char* const sides[] = {"top", "right", "bottom", "left"};
+  std::vector<std::pair<std::string, std::string>> resolved = {
+      {"width", UsedPixels(used.width)}, {"height", UsedPixels(used.height)}};
+  for (int i = 0; i < 4; ++i) {
+    resolved.push_back({std::string("padding-") + sides[i], UsedPixels(used.padding[i])});
+    resolved.push_back({std::string("margin-") + sides[i], UsedPixels(used.margin[i])});
+  }
+  std::string position;
+  for (const auto& entry : computed->values) if (entry.first == "position") position = entry.second;
+  if (!position.empty() && position != "static")
+    for (int i = 0; i < 4; ++i) {
+      // An auto inset stays auto unless the opposite side fixes it.
+      for (const auto& entry : computed->values)
+        if (entry.first == sides[i] && entry.second != "auto")
+          resolved.push_back({sides[i], UsedPixels(used.inset[i])});
+    }
+  for (auto& entry : computed->values)
+    for (const auto& [name, value] : resolved)
+      if (entry.first == name) {
+        const bool box_size = name == "width" || name == "height";
+        if (box_size || !PlainLength(entry.second)) entry.second = value;
+        break;
+      }
 }
 
 bool ViewName(JSContext* cx, JS::HandleValue value, std::string* out,bool page=false) {
@@ -145,37 +205,31 @@ bool GetComputedStyle(JSContext* cx, unsigned argc, JS::Value* vp) {
       ? static_cast<document_model::Wrapper*>(JS::GetReservedSlot(raw, 0).toPrivate()) : nullptr;
   uint64_t revision = 0, stamp = 0;
   const bool cacheable = wrapper && wrapper->owner && !wrapper->dead &&
-      CascadeStamp(state, element, &stamp, true);
+      CascadeStamp(state, element, &stamp);
   if (cacheable) revision = wrapper->owner->model.Revision();
   auto& cache = state.computedBlocks;
-  if (cacheable) {
-    if (!cache.ready || cache.document != wrapper->key.document ||
-        cache.revision != revision || cache.stamp != stamp) {
-      cache.blocks.clear();
-      cache.reader = std::make_unique<ComputedStyleReader>(state);
-      cache.document = wrapper->key.document;
-      cache.revision = revision;
-      cache.stamp = stamp;
-      cache.ready = true;
-    } else {
-      auto found = cache.blocks.find(wrapper->key.node);
-      if (found != cache.blocks.end()) {
-        JS::RootedObject view(cx);
-        if (!state.NewStyleView(found->second, &view)) return false;
-        args.rval().setObject(*view);
-        return true;
-      }
+  if (cacheable && cache.ready && cache.revision == revision && cache.stamp == stamp) {
+    auto found = cache.blocks.find(wrapper->key.node);
+    if (found != cache.blocks.end()) {
+      JS::RootedObject view(cx);
+      if (!state.NewStyleView(found->second, &view)) return false;
+      args.rval().setObject(*view);
+      return true;
     }
   }
   ComputedStyle computed;
-  if (cacheable) {
-    if (!cache.reader) cache.reader = std::make_unique<ComputedStyleReader>(state);
-    if (!cache.reader->Read(element, &computed)) return false;
-  } else {
-    if (!ReadComputed(state, element, &computed)) return false;
-  }
+  if (!ReadComputed(state, element, &computed)) return false;
+  ResolveUsed(state, element, &computed);
   std::string block = BuildComputedBlock(computed);
-  if (cacheable) cache.blocks.insert_or_assign(wrapper->key.node, block);
+  if (cacheable) {
+    if (!cache.ready || cache.revision != revision || cache.stamp != stamp) {
+      cache.blocks.clear();
+      cache.revision = revision;
+      cache.stamp = stamp;
+      cache.ready = true;
+    }
+    cache.blocks.insert_or_assign(wrapper->key.node, block);
+  }
   JS::RootedObject view(cx);
   if (!state.NewStyleView(block, &view)) return false;
   args.rval().setObject(*view);
