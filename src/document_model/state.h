@@ -110,6 +110,9 @@ struct Wrapper {
   bool rooted = false;
   bool dead = false;
   bool formSubmitting = false, formConstructing = false, formResetting = false, clickInProgress = false;
+  // Whether the node is an HTMLFormElement: -1 not read yet. A node's
+  // interface never changes, and the resolve hook asks on every lookup (#35).
+  int8_t isForm = -1;
   uint64_t formNavigationVersion = 0;
   uint32_t imageGeneration = 0;
   bool imageComplete = true;
@@ -169,7 +172,20 @@ struct State {
   JSContext* cx;
   JS::PersistentRootedObject page, documentLocationGetter, documentLocationSetter,
       datasetPrototype, optionsIteratorValues;
-  JS::PersistentRootedObject selection;  // Window.getSelection empty singleton per realm
+  JS::PersistentRootedObject selection;  // the window's Selection (selection.cpp)
+  // The window Selection's Range objects in document order and the one its
+  // anchor/focus describe (the last added; its end is the anchor when
+  // `selectionBackward`). They are ordinary Range objects of `ranges`
+  // (selection.cpp).
+  JS::PersistentRooted<JS::GCVector<JSObject*>> selectionRanges{cx, JS::GCVector<JSObject*>(cx)};
+  JS::PersistentRootedObject selectionPrimary{cx};
+  // A Range the selection created and script never received (getRangeAt
+  // hands it out): the next replacement reuses it, so a caret that moves on
+  // every keystroke does not leave one realm-lifetime Range per character.
+  JS::PersistentRootedObject selectionScratch{cx};
+  bool selectionBackward = false;
+  JS::PersistentRootedValue caretBidiLevel{cx};
+  bool selectionChangePending = false;
   // HTMLInputElement.files: element -> FileList (html_input_files.cpp); the
   // FileList factory belongs to the Web Platform owner.
   JS::PersistentRootedObject inputFiles{cx};

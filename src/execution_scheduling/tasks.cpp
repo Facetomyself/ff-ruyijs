@@ -54,6 +54,6 @@ bool Realm::PostDelayedTask(JS::HandleObject handler,double delay){
  if(s.Retired(callback->global))return true;
  callback->handler=JS::ObjectValue(*handler);s.SyncClock();
  if(!s.Accept(s.model.ScheduleDelayed(delay,&callback->id)))return false;
- s.Track(std::move(callback));return true;
+ s.Link(std::move(callback));return true;
 }
 }

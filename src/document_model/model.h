@@ -295,6 +295,13 @@ class Model final {
 
 
   Status Inspect(NodeKey node, NodeSnapshot* result) const noexcept;
+  // Inspect limited to the parts a getter reads. key, kind, document_mode,
+  // owner_document and the shadow links are always filled; the rest only for
+  // the requested parts. kInspectSiblings scans the parent's child list and
+  // kInspectRoots walks the ancestors, so a getter asks only for what it uses (#35).
+  static constexpr uint32_t kInspectNames = 1, kInspectTree = 2, kInspectSiblings = 4,
+                            kInspectRoots = 8, kInspectValue = 16, kInspectAll = 31;
+  Status Inspect(NodeKey node, NodeSnapshot* result, uint32_t parts) const noexcept;
   // The node type only. Interface receivers use this instead of Inspect,
   // which also names siblings and copies strings they do not read.
   Status Kind(NodeKey node, NodeKind* result) const noexcept;
@@ -502,6 +509,8 @@ class Model final {
   Status SetCustomValidity(NodeKey, DomStringView value) noexcept;
   Status LabelControl(NodeKey, NodeKey* result) const noexcept;
   Status MeterValue(NodeKey, DomStringView name, double* result) const noexcept;
+  // meter_value for a <meter>, progress_value for a <progress> (max, value, position).
+  Status GaugeValue(NodeKey, DomStringView name, double* result) const noexcept;
   Status HeadAttribute(NodeKey, DomStringView name, std::optional<DomString>* result) const noexcept;
   Status ContentAttribute(NodeKey, DomStringView name, DomString* result) const noexcept;
   Status SetContentAttribute(NodeKey, DomStringView name, DomStringView value) noexcept;
@@ -511,6 +520,9 @@ class Model final {
   Status AnchorPolicy(NodeKey, DomString* result) const noexcept;
   Status SetAnchorPolicy(NodeKey, DomStringView value) noexcept;
   Status SetMeterValue(NodeKey, DomStringView name, double value) noexcept;
+  // The reflected double write; a <progress> ignores a max that is not positive
+  // and a value below zero is stored as written (HTML §4.10.13).
+  Status SetGaugeValue(NodeKey, DomStringView name, double value) noexcept;
   Status InputText(NodeKey, DomStringView name, DomString* result) const noexcept;
   Status SetInputValue(NodeKey, DomStringView value) noexcept;
   Status ResetInputValues(NodeKey form) noexcept;
