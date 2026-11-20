@@ -17,37 +17,6 @@ import urlpattern_native
 import rust_runtime
 
 
-def urlpattern_rlibs(directory):
-    """Rlibs for the combined URLPattern archive.
-
-    Cargo through 1.99 wrote them in target/release/deps. Cargo 1.100, the
-    rustc that builds the Firefox 160 donor, writes each unit under
-    target/release/build/<package>/<hash>/out instead, and also copies the
-    top-level crate to target/release. Proc-macro crates in that tree are
-    build dependencies and are not linked.
-    """
-    release = directory / "target/release"
-    candidates = []
-    candidates.extend(release.glob("deps/*.rlib"))
-    candidates.extend(release.glob("*.rlib"))
-    candidates.extend(release.glob("build/*/*/out/*.rlib"))
-    skip = {"syn", "quote", "proc-macro2", "synstructure", "unicode-ident"}
-    chosen = {}
-    for path in candidates:
-        stem = path.name[:-len(".rlib")]
-        if stem.startswith("lib"):
-            stem = stem[3:]
-        base, _, tail = stem.rpartition("-")
-        if not base or len(tail) < 8:
-            base = stem
-        if base in skip or base.replace("_", "-") in skip:
-            continue
-        previous = chosen.get(base)
-        if previous is None or "/build/" in previous.as_posix():
-            chosen[base] = path
-    return [chosen[name] for name in sorted(chosen)]
-
-
 def build_urlpattern(root, donor, build):
     source = root / "vendor/urlpattern-native"
     directory = build / "urlpattern"
@@ -92,18 +61,16 @@ def build_urlpattern(root, donor, build):
     # The donor already owns Rust's allocator and standard runtime. Combining
     # the crate rlibs avoids a second std/init array from a Rust staticlib.
     archive = directory / "target/release/libruyijs_urlpattern.a"
-    libraries = urlpattern_rlibs(directory)
-    if not libraries:
-        raise RuntimeError("urlpattern cargo build produced no rlibs")
-    listing = "\n".join(str(path) for path in libraries) + "\n"
-    stamp = directory / "rlibs.txt"
-    if archive.is_file() and archive.stat().st_size > 1024 and stamp.is_file() and stamp.read_text() == listing:
+    # Cargo 1.100 lays each unit out on its own: release/build/<package>/<hash>/out.
+    members = (sorted((directory / "target/release/deps").glob("*.rlib")) or
+               sorted((directory / "target/release/build").rglob("*.rlib")))
+    if archive.is_file() and all(p.stat().st_mtime_ns <= archive.stat().st_mtime_ns for p in members):
         return
     if archive.exists():
         archive.unlink()
+    libraries = members
     script = "CREATE " + str(archive) + "\n" + "".join("ADDLIB " + str(path) + "\n" for path in libraries) + "SAVE\nEND\n"
     subprocess.run(["ar", "-M"], input=script, text=True, check=True)
-    stamp.write_text(listing)
 
 
 def build_compression(root, donor, build):

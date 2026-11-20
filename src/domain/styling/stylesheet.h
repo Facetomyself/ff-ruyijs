@@ -203,6 +203,7 @@ public:
     // Identity of the shared custom-property map (null when none): elements that
     // inherit the same map share it, so a serialization can be memoized by it.
     const void* customs_identity() const noexcept { return customs_.get(); }
+    const std::shared_ptr<Properties>& customs_ptr() const noexcept { return customs_; }
 
     /// cssText: "color: red; font-size: 14px;"
     std::string css_text() const {
@@ -832,7 +833,7 @@ public:
             "list-style-image", "quotes", "border-collapse", "border-spacing",
             "caption-side", "empty-cells", "orphans", "widows", "text-rendering",
             "accent-color", "color-scheme", "forced-color-adjust", "hyphens",
-            "image-rendering", "paint-order", "text-wrap", "overflow-wrap",
+            "image-rendering", "paint-order", "pointer-events", "text-wrap", "overflow-wrap",
             "font-variant-numeric"};
         return names;
     }
@@ -955,7 +956,7 @@ private:
             {"align-items", "normal"}, {"align-self", "auto"}, {"align-content", "normal"},
             {"justify-content", "normal"}, {"row-gap", "normal"}, {"column-gap", "normal"},
             {"place-items", "normal"}, {"text-wrap", "wrap"}, {"overflow-wrap", "normal"},
-            {"user-select", "auto"}, {"touch-action", "auto"}, {"isolation", "auto"},
+            {"user-select", "auto"}, {"touch-action", "auto"}, {"pointer-events", "auto"}, {"isolation", "auto"},
             {"mix-blend-mode", "normal"}, {"filter", "none"}, {"backdrop-filter", "none"},
             {"mask-image", "none"}, {"clip-path", "none"}, {"paint-order", "normal"},
             {"will-change", "auto"}, {"contain", "none"}, {"aspect-ratio", "auto"},

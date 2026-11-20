@@ -22,6 +22,7 @@ static bool FragmentId(JSContext* cx, unsigned argc, JS::Value* vp) {
   if (!state.Check(state.model.Query(entry->key, QueryKind::Id, value, &found))) return false;
   return state.Wrap(found.empty() ? NodeKey{} : found.front(), args.rval());
 }
+
 // Cached live collection of one scope+filter, refreshed from the owner.
 static bool CollectionObject(State& state, CollectionKind kind, NodeKey scope,
                              CollectionFilter filter, DomStringView argument,
