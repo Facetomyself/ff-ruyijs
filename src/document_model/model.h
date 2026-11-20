@@ -245,6 +245,10 @@ class Model final {
   // The revision of the tree shape and character data: unchanged by attribute
   // writes, so a layout can tell an attribute-only change from a tree change.
   uint64_t TreeRevision() const noexcept;
+  // Unchanged by attribute writes on disconnected elements (such as a scratch
+  // element created for inline CSS parsing), so connected style/layout caches stay warm.
+  uint64_t ConnectedRevision() const noexcept;
+  bool IsConnected(NodeKey) const noexcept;
   // The revision of the tree shape and class attributes: unchanged by non-class
   // attribute writes, so class-based collections and classList views stay live
   // without re-collecting on unrelated attribute writes.
@@ -273,6 +277,18 @@ class Model final {
   // both the keys that entered and the keys that left the tree. The document
   // model binds it to root a wrapper whose node entered the tree and to release
   // the root of one whose node left it (T41).
+  struct RangeSink {
+    void* context = nullptr;
+    void (*before_remove)(void* context, NodeKey parent, NodeKey child, uint32_t old_index) = nullptr;
+    void (*after_insert)(void* context, NodeKey parent, uint32_t index, uint32_t count) = nullptr;
+    void (*replace_data)(void* context, NodeKey node, uint32_t offset, uint32_t count,
+                         uint32_t inserted) = nullptr;
+    void (*split_text)(void* context, NodeKey node, NodeKey new_node, NodeKey parent,
+                       uint32_t parent_index_after, uint32_t offset) = nullptr;
+    void (*merge_text)(void* context, NodeKey kept_text, uint32_t kept_old_length,
+                       NodeKey merged_sibling, NodeKey parent, uint32_t sibling_index) = nullptr;
+  };
+  void SetRangeSink(const RangeSink& sink) noexcept;
   void SetTreeSink(void (*sink)(void*, DocumentId, const std::vector<NodeKey>&,
                                 const std::vector<NodeKey>&),
                    void* context) noexcept;

@@ -155,6 +155,7 @@ BrowsingContext::~BrowsingContext() {
   if (workers) {
     workers->Stop();
     workers->SetTaskPort(nullptr, nullptr);
+    workers->SetLogicalClockPort(nullptr, nullptr);
     workers->SetObjectUrlPort(nullptr, nullptr);
     workers->SetEnvironmentPort(nullptr, nullptr);
     workers->SetScriptUrlPort(nullptr, nullptr);
@@ -175,6 +176,7 @@ BrowsingContext::~BrowsingContext() {
     document->SetFormPorts(nullptr, nullptr, nullptr);
     document->SetImageLoadPort(nullptr, nullptr);
     document->SetOffsetGeometryPort(nullptr, nullptr);
+    document->SetPointQueryPort(nullptr, nullptr);
     document->SetElementScrollPort({});
     document->SetMediaKeysCheckPort(nullptr, nullptr);
     document->SetTextTrackPorts({});

@@ -35,14 +35,15 @@ Status Model::SetAttribute(NodeKey key, DomStringView name, DomStringView value)
     element.set_attribute16(name,value);
     NoteIdChange(State().owner(key), key.node, previous_id, element.get_attribute16(u"id"));
     State().NoteAttributes(key, name, DomStringView(), old ? &*old : nullptr);
+    const bool connected = State().IsComposedConnected(key);
     // An unchanged value (classList.add of a present token) or an in-place update
     // to an existing style attribute is still a mutation record, but no collection
     // or NamedNodeMap membership can change; creating style adds an Attr entry.
     const bool is_style = element.tag_name().folds_case() ? domain::ascii_lower(DomString(name)) == u"style"
                                                           : name == u"style";
-    if (old && (is_style || DomStringView(*old) == value)) State().TouchStyle();
-    else if (domain::ascii_lower(DomString(name)) == u"class") State().TouchClass();
-    else State().TouchAttribute();
+    if (old && (is_style || DomStringView(*old) == value)) State().TouchStyle(connected);
+    else if (domain::ascii_lower(DomString(name)) == u"class") State().TouchClass(connected);
+    else State().TouchAttribute(connected);
   });
 }
 Status Model::RemoveAttribute(NodeKey key, DomStringView name) noexcept {
@@ -54,9 +55,10 @@ Status Model::RemoveAttribute(NodeKey key, DomStringView name) noexcept {
     NoteIdChange(State().owner(key), key.node, previous_id, element.get_attribute16(u"id"));
     // Removing an attribute that was not there is not a mutation.
     if (old) State().NoteAttributes(key, name, DomStringView(), &*old);
-    if (!old) State().TouchStyle();
-    else if (domain::ascii_lower(DomString(name)) == u"class") State().TouchClass();
-    else State().TouchAttribute();
+    const bool connected = State().IsComposedConnected(key);
+    if (!old) State().TouchStyle(connected);
+    else if (domain::ascii_lower(DomString(name)) == u"class") State().TouchClass(connected);
+    else State().TouchAttribute(connected);
   });
 }
 Status Model::Attributes(NodeKey key, std::vector<AttributeSnapshot>* result) const noexcept {
@@ -144,9 +146,10 @@ Status Model::SetAttributeNS(NodeKey key, DomStringView namespace_uri, DomString
     element.set_attribute_ns16(namespace_uri,qualified,value);
     NoteIdChange(State().owner(key), key.node, previous_id, element.get_attribute16(u"id"));
     State().NoteAttributes(key, folded, namespace_uri, old ? &*old : nullptr);
-    if (old && (DomStringView(*old) == value || (namespace_uri.empty() && folded == u"style"))) State().TouchStyle();
-    else if (namespace_uri.empty() && domain::ascii_lower(folded) == u"class") State().TouchClass();
-    else State().TouchAttribute();
+    const bool connected = State().IsComposedConnected(key);
+    if (old && (DomStringView(*old) == value || (namespace_uri.empty() && folded == u"style"))) State().TouchStyle(connected);
+    else if (namespace_uri.empty() && domain::ascii_lower(folded) == u"class") State().TouchClass(connected);
+    else State().TouchAttribute(connected);
   });
 }
 Status Model::RemoveAttributeNS(NodeKey key, DomStringView namespace_uri, DomStringView local) noexcept {
@@ -157,9 +160,10 @@ Status Model::RemoveAttributeNS(NodeKey key, DomStringView namespace_uri, DomStr
     element.remove_attribute_ns16(namespace_uri,local);
     NoteIdChange(State().owner(key), key.node, previous_id, element.get_attribute16(u"id"));
     if (old) State().NoteAttributes(key, local, namespace_uri, &*old);
-    if (!old) State().TouchStyle();
-    else if (namespace_uri.empty() && domain::ascii_lower(DomString(local)) == u"class") State().TouchClass();
-    else State().TouchAttribute();
+    const bool connected = State().IsComposedConnected(key);
+    if (!old) State().TouchStyle(connected);
+    else if (namespace_uri.empty() && domain::ascii_lower(DomString(local)) == u"class") State().TouchClass(connected);
+    else State().TouchAttribute(connected);
   });
 }
 Status Model::ToggleAttribute(NodeKey key, DomStringView name, bool force, bool has_force,
@@ -177,8 +181,9 @@ Status Model::ToggleAttribute(NodeKey key, DomStringView name, bool force, bool 
     else { State().budget(0,0,old->size()); element.remove_attribute16(name); }
     NoteIdChange(State().owner(key), key.node, previous_id, element.get_attribute16(u"id"));
     State().NoteAttributes(key, name, DomStringView(), old ? &*old : nullptr);
-    if (domain::ascii_lower(DomString(name)) == u"class") State().TouchClass();
-    else State().TouchAttribute();
+    const bool connected = State().IsComposedConnected(key);
+    if (domain::ascii_lower(DomString(name)) == u"class") State().TouchClass(connected);
+    else State().TouchAttribute(connected);
   });
 }
 }
