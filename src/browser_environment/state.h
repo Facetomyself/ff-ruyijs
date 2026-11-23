@@ -48,6 +48,11 @@ struct State final {
   std::shared_ptr<std::map<std::string, bool>> agentClusters = std::make_shared<std::map<std::string, bool>>();
   // This document's own answer (window.originAgentCluster).
   bool originKeyed = false;
+  // The document whose buffered owner groups (webgl, webgpu, permissions,
+  // geolocation, speech, media and kOwnerGroups) this one starts with: the
+  // creator of an iframe, or the document a later top-level document replaces.
+  // Inherit() clones them into this realm once and clears it.
+  const State* groupSource = nullptr;
   // Runtime document state; never delegated through shared or fingerprint Model.
   domain::browser_environment::UserActivation activation;
   double (*activationClock)(void*) = nullptr;
@@ -128,6 +133,10 @@ struct State final {
   // so this adapter never keeps an iframe list of its own.
   size_t (*frameCount)(void*) = nullptr;
   void* frameCountContext = nullptr;
+  // The index-th child WindowProxy as the current caller sees it (window[i]);
+  // the cross-origin view answers indexed and named child access through it.
+  bool (*frameWindow)(void*, size_t, JS::MutableHandleValue) = nullptr;
+  void* frameWindowContext = nullptr;
   WindowNamePort windowNamePort = nullptr;
   void* windowNameContext = nullptr;
   // Content viewport source. Top-level reads the profile; child realms use the
@@ -266,6 +275,7 @@ struct State final {
   bool EffectiveSpeech(JS::MutableHandleObject result);
   bool PushSpeech();
   bool Inherit();
+  bool InheritGroups(const State& source);
   bool Apply(JS::HandleObject profile, bool complete);
   bool ApplyChanges(std::vector<Change>& changes);
   bool ApplyWorkerProfile(std::string_view profile);

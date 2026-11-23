@@ -16,14 +16,14 @@
 #                              ci/fetch_abort_transfer_check.py, ci/load_timer_check.py,
 #                              ci/timer_scale_check.py, ci/selection_check.py,
 #                              ci/cascade_collection_check.py, ci/node_getter_check.py,
-#                              ci/timer_scaling_check.py,
-#                              ci/socks_proxy_check.py,
-#                              ci/layout_fingerprint_check.py,
+#                              ci/timer_scaling_check.py, ci/socks_proxy_check.py,
+#                              ci/layout_fingerprint_check.py, ci/computed_style_check.py,
+#                              ci/hit_test_and_live_range_check.py, ci/flex_nesting_check.py,
+#                              ci/frame_profile_check.py, ci/cross_origin_window_check.py,
+#                              ci/token_list_check.py, ci/worker_port_check.py,
+#                              ci/net_log_check.py, ci/http_timeout_check.py,
 #                              ci/network_smoke.py, ci/proxy_smoke.py, ci/hello_check.py,
-#                              ci/engine_check.py, tests/test_macos_runtime.py,
-#                              ci/worker_blob_message_check.py,
-#                              ci/dom_id_index_check.py, ci/dom_tag_ns_check.py,
-#                              and ci/dom_id_fastpath_check.py
+#                              ci/engine_check.py, and tests/test_macos_runtime.py
 set -euo pipefail
 step="${1:?usage: build.sh deps|donor|shell|necko|wheel|test}"
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -119,6 +119,10 @@ case "$step" in
     "${clean[@]}" "$venv/bin/python" "$root/ci/computed_style_check.py"
     "${clean[@]}" "$venv/bin/python" "$root/ci/hit_test_and_live_range_check.py"
     "${clean[@]}" "$venv/bin/python" "$root/ci/flex_nesting_check.py"
+    "${clean[@]}" "$venv/bin/python" "$root/ci/frame_profile_check.py"
+    "${clean[@]}" "$venv/bin/python" "$root/ci/cross_origin_window_check.py"
+    "${clean[@]}" "$venv/bin/python" "$root/ci/token_list_check.py"
+    "${clean[@]}" "$venv/bin/python" "$root/ci/worker_port_check.py"
     "${clean[@]}" "$venv/bin/python" "$root/ci/net_log_check.py"
     "${clean[@]}" "$venv/bin/python" "$root/ci/http_timeout_check.py"
     # One real page load through the bundled Necko helper, direct and through

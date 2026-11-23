@@ -100,6 +100,7 @@ BrowsingContext::~BrowsingContext() {
     environment->SetMessagePort(nullptr, nullptr);
     environment->SetClonePort(nullptr, nullptr);
     environment->SetFrameCount(nullptr, nullptr);
+    environment->SetFrameWindowPort(nullptr, nullptr);
     SetPageFrames(page, nullptr);
     environment->SetWindowNamePort(nullptr, nullptr);
     environment->SetViewportPort(nullptr, nullptr);
@@ -278,6 +279,9 @@ bool BrowsingContext::Finish(Frames& owner) {
   }, this);
   frames = &owner;
   environment->SetFrameCount(&FrameCount, document.get());
+  environment->SetFrameWindowPort([](void* context, size_t index, JS::MutableHandleValue window) {
+    return static_cast<document_model::Realm*>(context)->FrameWindowAt(index, window);
+  }, document.get());
   pageFrames.count = &FrameCount;
   pageFrames.at = [](void* context, size_t index, JS::MutableHandleValue window) {
     return static_cast<document_model::Realm*>(context)->FrameWindowAt(index, window);
@@ -547,6 +551,8 @@ bool BrowsingContext::Finish(Frames& owner) {
   }, messaging.get());
   messaging->SetRemoteRelay(&web_workers::RelaySharedWindow, workers->state());
   messaging->SetRemoteClose(&web_workers::CloseSharedWindow, workers->state());
+  // MessagePorts transferred to dedicated Workers (clone.h): parent ids bit 30.
+  web_workers::SetPortTransfer(&web_messaging::Realm::IsPort, &web_messaging::Realm::BridgePort, 0x40000000u);
   // ClipboardItem settles with this realm's Blob (Web Platform) and
   // DOMException (Document Model), so it installs after both.
   clipboard = std::make_unique<web_clipboard::Realm>(cx, page, *helpers);
