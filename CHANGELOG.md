@@ -3,7 +3,45 @@
 All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Unreleased]
+## [0.4.3] - 2026-11-22
+
+### Fixed
+
+- A profile set with `configure_fingerprint()` reached only the main document's WebGL, WebGPU and media
+  owners: every iframe (about:blank, same-origin, cross-origin, nested) reported the default GPU
+  (GTX 980), `requestAdapter()` returned null and `enumerateDevices()` the default list; a Worker started
+  by an iframe also lost the permissions, canvas, fonts, audio, RTC and media-feature groups, and the
+  document after a top-level navigation lost the media group (#51). Each new document now clones every
+  configured group of its creator (or of the document it replaces) into its own realm before its owners
+  bind; constructors, prototypes and objects stay per realm. `ci/frame_profile_check.py` reads the
+  profile from page script in 13 realms.
+- A cross-origin `WindowProxy` refused its child frames: `w[0]`, `w.frames[i]`, `w.length` loops and
+  `parent.frames[name]` threw `SecurityError: Permission denied to access property "symbol"`, which
+  broke handshakes that walk a cross-origin parent's frames (reCAPTCHA v2 anchor/bframe) (#52). It now
+  answers as Firefox 160 does: indexed and named child access, `[[OwnPropertyKeys]]` (child indices,
+  then the members, `then` and the three symbols), accessor descriptors for the cross-origin attributes
+  (`get length`, `set location`, set-only `Location.href`), the SecurityError texts (`property 2`,
+  `property Symbol.iterator`), and `top`/`parent`/`length`/`closed`/`opener` read from the window
+  itself, so a page-replaced `window.length` or `window.opener` no longer reaches a cross-origin
+  caller. Same-origin named access (`window.frameName`) returned the raw child window even when the
+  child was cross-origin; it now returns the child's `WindowProxy`. An iframe's `window.name` is its
+  `name` attribute (and follows changes of it), as in Firefox, and named access matches that name.
+  `ci/cross_origin_window_check.py` compares 196 rows with Firefox 160.
+- `iframe.sandbox = "..."`, `element.classList = "..."` and `element.part = "..."` were dropped: the
+  three DOMTokenList attributes had getters only, not WebIDL `[PutForwards=value]` setters. reCAPTCHA
+  (v2 and Enterprise) creates its anchor and bframe iframes with `iframe.sandbox = "allow-forms
+  allow-popups allow-same-origin allow-scripts allow-top-navigation"`, so both frames ran without
+  `allow-scripts`, no script ran in them, and the page's reCAPTCHA code failed with
+  `TypeError: can't access property "postMessage", m is undefined` (#52). `sandbox` is also
+  `[SameObject]`, `sandbox.supports()` checks Firefox's keyword list, `classList`/`part.supports()`
+  throw Firefox's TypeError, and `DOMTokenList.value = null` gives `"null"`. `ci/token_list_check.py`
+  (16 rows measured in Firefox 160).
+- A dedicated Worker could not transfer a `MessagePort` to its page or receive one from it
+  (`postMessage(data, [port])` threw a DataCloneError inside the worker process). reCAPTCHA's
+  `webworker.js` posts a port to the anchor frame and the anchor waits five seconds for it, so every
+  challenge failed with `Error: Timed out.` before building its bframe (#52). Ports now cross the
+  worker pipe both ways and stay entangled with their peer; a port already transferred throws
+  DataCloneError as in Firefox. `ci/worker_port_check.py` (Firefox 160 rows).
 
 ## [0.4.2] - 2026-11-20
 
