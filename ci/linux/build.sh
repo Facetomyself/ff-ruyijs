@@ -22,6 +22,7 @@
 #                              ci/frame_profile_check.py, ci/cross_origin_window_check.py,
 #                              ci/token_list_check.py, ci/worker_port_check.py,
 #                              ci/net_log_check.py, ci/http_timeout_check.py,
+#                              ci/diagnostics_check.py, ci/connect_fallback_check.py,
 #                              ci/network_smoke.py, ci/proxy_smoke.py, ci/hello_check.py,
 #                              ci/engine_check.py, and tests/test_macos_runtime.py
 set -euo pipefail
@@ -125,6 +126,8 @@ case "$step" in
     "${clean[@]}" "$venv/bin/python" "$root/ci/worker_port_check.py"
     "${clean[@]}" "$venv/bin/python" "$root/ci/net_log_check.py"
     "${clean[@]}" "$venv/bin/python" "$root/ci/http_timeout_check.py"
+    "${clean[@]}" "$venv/bin/python" "$root/ci/diagnostics_check.py"
+    "${clean[@]}" "$venv/bin/python" "$root/ci/connect_fallback_check.py"
     # One real page load through the bundled Necko helper, direct and through
     # a local CONNECT proxy.
     "${clean[@]}" "$venv/bin/python" "$root/ci/network_smoke.py"

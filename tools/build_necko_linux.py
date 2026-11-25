@@ -26,6 +26,7 @@ import venv
 import zipfile
 
 import compression_native
+import necko_connect_patch
 
 DEPENDENCIES = ["requests==2.34.2", "urllib3==2.7.0", "h2==4.4.1",
                 "hpack==4.2.0", "hyperframe==6.1.0", "brotli==1.2.0",
@@ -62,6 +63,10 @@ PATCHES = {
          '                firefox=self.firefox,\n'),
     ],
 }
+# connection_control.py is not in PATCHES. The 0.4.4 runtime already calls
+# connect_any, so the old open_socket loop is not an exact-once anchor.
+# necko_connect_patch.apply() leaves that edit unchanged and fails only when
+# the old loop has changed without it.
 
 
 def run(args, **kwargs):
@@ -100,25 +105,32 @@ def install_packages(root, build, site):
             content = source.read(entry)
             inventory[relative.as_posix()] = digest(content)
             text_name = relative.as_posix()
-            if text_name in PATCHES:
+            if text_name == necko_connect_patch.TARGET or text_name in PATCHES:
                 text = content.decode("utf-8").replace("\r\n", "\n")
-                for old, new in PATCHES[text_name]:
-                    if text.count(old) != 1:
-                        raise ValueError(f"Linux patch anchor changed in {text_name}: {old!r}")
-                    text = text.replace(old, new)
+                if text_name == necko_connect_patch.TARGET:
+                    text = necko_connect_patch.apply(text)
+                else:
+                    for old, new in PATCHES[text_name]:
+                        if text.count(old) != 1:
+                            raise ValueError(f"Linux patch anchor changed in {text_name}: {old!r}")
+                        text = text.replace(old, new)
                 content = text.encode("utf-8")
             target = site / relative
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_bytes(content)
-    missing = sorted(set(PATCHES) - set(inventory))
+    required = set(PATCHES)
+    required.add(necko_connect_patch.TARGET)
+    missing = sorted(required - set(inventory))
     if missing:
         raise ValueError(f"Pinned runtime lacks {missing}")
     oneshot = site / "ruyijs_necko/oneshot.py"
     oneshot.write_bytes((root / "src/resource_network/necko_oneshot.py").read_bytes())
+    (site / necko_connect_patch.MODULE).write_bytes((root / necko_connect_patch.SOURCE).read_bytes())
     (build / "upstream.json").write_text(json.dumps({
         "archive": manifest["url"], "sha256": manifest["sha256"], "files": inventory,
-        "patched": sorted(PATCHES), "replaced": {"ruyijs_necko/oneshot.py":
-                                                 "src/resource_network/necko_oneshot.py"}},
+        "patched": sorted(required), "replaced": {"ruyijs_necko/oneshot.py":
+                                                 "src/resource_network/necko_oneshot.py",
+                                                 necko_connect_patch.MODULE: necko_connect_patch.SOURCE}},
         indent=2) + "\n", encoding="utf-8")
 
 
