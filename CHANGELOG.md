@@ -3,6 +3,36 @@
 All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.4.4] - 2026-11-24
+
+### Fixed
+
+- A host whose DNS answer leads with an unreachable address no longer costs a connect timeout per dead
+  address. The Necko helper tried the resolved addresses strictly one after another, each with the whole
+  remaining request budget, so on a network without a working IPv6 route a host with two AAAA records took
+  42 s to reach — a page `curl` fetches in 0.3 s — and a request whose `http_timeout` was shorter failed
+  outright. The attempts now start 250 ms apart and alternate between address families, the first
+  established connection wins and the others are cancelled: the same page loads in 0.9 s, and a slow but
+  working address still wins on its own. The request budget bounds every attempt as before, and each
+  in-flight attempt holds its own transport reservation. This covers the Windows and Linux helper
+  (`connection_control.open_socket`) and the macOS direct HTTPS client (`necko/core_client.py`).
+  `RUYIJS_CONNECT_STAGGER` and `RUYIJS_CONNECT_CONCURRENCY` tune the delay and the number of attempts at
+  once. `ci/connect_fallback_check.py` checks the module the runtime ships with a black-holed address and a
+  loopback listener, so it does not depend on the host's own IPv6.
+
+### Added
+
+- `Context.set_document_start_script(source)`: runs `source` in every document the Context builds — the
+  `load_page`/`navigate` document, each document a later navigation or reload creates, and every frame —
+  before that document's first script. A page that replaces an API in its own first script, or whose error
+  only appears in a document a navigation replaced, can now be observed; before this a host could only reach
+  a document after its scripts had run (#53). It is host code: its own failure is recorded in the console log
+  (method `documentStart`) and the page loads normally. `""` removes it.
+- A logged Error now reads `TypeError: bad thing` in `console_log()`, where it read `[object Error]`, and its
+  record carries the stack of where the Error was constructed — the only trace of an Error a page logs
+  without throwing (#53). Both are read from the engine's Error object, so logging still runs no page code: a
+  replaced `name`, a `message` getter or a `toString` is never called. `ci/diagnostics_check.py` checks both.
+
 ## [0.4.3] - 2026-11-22
 
 ### Fixed
