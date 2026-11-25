@@ -24,7 +24,8 @@
 #                              ci/net_log_check.py, ci/http_timeout_check.py,
 #                              ci/diagnostics_check.py, ci/connect_fallback_check.py,
 #                              ci/network_smoke.py, ci/proxy_smoke.py, ci/hello_check.py,
-#                              ci/engine_check.py, and tests/test_macos_runtime.py
+#                              ci/engine_check.py, ci/helper_check.py, ci/layout_check.py,
+#                              and tests/test_macos_runtime.py
 set -euo pipefail
 step="${1:?usage: build.sh deps|donor|shell|necko|wheel|test}"
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
