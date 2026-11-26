@@ -461,6 +461,14 @@ bool Realm::MeasureUsed(JS::HandleObject element, UsedBox* out, bool* present) {
   const auto& b=layout->layout[found];
   out->width=b.content[2]; out->height=b.content[3];
   out->padding=b.padding; out->margin=b.margin; out->border=b.edge;
+  // A scrollbar takes its room from the padding box, never more than there is:
+  // in a box narrower than the 17px bar the content box is empty and the bar
+  // spans what is left. content + scrollbar is nsIFrame::GetContentRect(),
+  // the resolved width/height (a 15px overflow:scroll box reads 15px).
+  const double inner_w=b.border[2]-b.edge[1]-b.edge[3]-b.padding[1]-b.padding[3];
+  const double inner_h=b.border[3]-b.edge[0]-b.edge[2]-b.padding[0]-b.padding[2];
+  out->scrollbar[0]=std::max(0.0,std::min(b.scrollbar[0],inner_w-b.content[2]));
+  out->scrollbar[1]=std::max(0.0,std::min(b.scrollbar[1],inner_h-b.content[3]));
   // Insets: the box's offset from its containing block, as Firefox resolves
   // a positioned box's top/right/bottom/left.
   const auto& position=node.style.Slot(box::BoxKnown::Position);
@@ -473,6 +481,39 @@ bool Realm::MeasureUsed(JS::HandleObject element, UsedBox* out, bool* present) {
                 value(box::BoxKnown::Bottom,cb_h),value(box::BoxKnown::Left,cb_w)};
   }
   *present=true;
+  return true;
+}
+bool Realm::EventCoordinates(JS::HandleObject target, int query, double x, double y,
+                             std::array<double, 2>* out) {
+  State& s=*state_;std::shared_ptr<const LayoutCache> layout;size_t found=size_t(-1);box::BoxViewport viewport;
+  if(!LayoutFor(s,target,&layout,&found,&viewport))return false;
+  if(query==0){*out={x+viewport.scroll_x,y+viewport.scroll_y};return true;}
+  if(!layout||found==size_t(-1)||!layout->layout[found].present)return true;
+  // The client rectangle of a box: its border box projected through the
+  // document and every scrolled ancestor (as getBoundingClientRect).
+  const auto client=[&](size_t index){
+    box::BoxViewport scrolled=viewport;const auto ancestors=AncestorScroll(s,*layout,index);
+    scrolled.scroll_x+=ancestors[0];scrolled.scroll_y+=ancestors[1];
+    return box::ProjectBoxRect(layout->nodes,layout->layout,scrolled,index);
+  };
+  if(query==2){
+    size_t index=found;
+    if(layout->nodes[index].text&&layout->nodes[index].parent!=size_t(-1))index=layout->nodes[index].parent;
+    for(;index!=size_t(-1)&&index!=0;index=layout->nodes[index].parent){
+      const auto& style=layout->nodes[index].style;
+      const auto position=style.Get("position"),transform=style.Get("transform");
+      if((!position.empty()&&position!="static")||(!transform.empty()&&transform!="none")||
+         box::BoxScrollContainer(layout->nodes,index))break;
+    }
+    // The root layer is the scrolled canvas: layerX is the page coordinate.
+    if(index==size_t(-1)||index==0){*out={x+viewport.scroll_x,y+viewport.scroll_y};return true;}
+    const auto rect=client(index);
+    *out={x-rect[0],y-rect[1]};return true;
+  }
+  // Event::GetOffsetCoords: the point relative to the frame, rounded to app
+  // units, less the frame's padding-rect origin (its border widths).
+  const auto rect=client(found);const auto& b=layout->layout[found];
+  *out={std::floor((x-rect[0])*60+.5)/60-b.edge[3],std::floor((y-rect[1])*60+.5)/60-b.edge[0]};
   return true;
 }
 bool Realm::MeasureOffset(JS::HandleObject element, document_model::OffsetGeometry* out) {
