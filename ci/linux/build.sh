@@ -10,6 +10,7 @@
 #                              (tools/build_necko_linux.py --http3; Python 3.14)
 #   ci/linux/build.sh wheel    the manylinux wheel                -> wheelhouse/
 #   ci/linux/build.sh test     installs the wheel in a fresh venv; ci/smoke_test.py,
+#                              ci/helper_check.py, ci/layout_check.py,
 #                              ci/dom_id_index_check.py, ci/dom_tag_ns_check.py,
 #                              ci/dom_id_fastpath_check.py, ci/worker_blob_message_check.py,
 #                              ci/atob_check.py, ci/fetch_abort_check.py,
@@ -23,9 +24,13 @@
 #                              ci/token_list_check.py, ci/worker_port_check.py,
 #                              ci/net_log_check.py, ci/http_timeout_check.py,
 #                              ci/diagnostics_check.py, ci/connect_fallback_check.py,
+#                              ci/canvas_unpremultiply_check.py,
+#                              ci/media_element_members_check.py,
+#                              ci/script_full_parse_check.py,
+#                              ci/webgl_context_attributes_check.py,
+#                              ci/mouse_event_coordinates_check.py,
 #                              ci/network_smoke.py, ci/proxy_smoke.py, ci/hello_check.py,
-#                              ci/engine_check.py, ci/helper_check.py, ci/layout_check.py,
-#                              and tests/test_macos_runtime.py
+#                              ci/engine_check.py, and tests/test_macos_runtime.py
 set -euo pipefail
 step="${1:?usage: build.sh deps|donor|shell|necko|wheel|test}"
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -129,6 +134,11 @@ case "$step" in
     "${clean[@]}" "$venv/bin/python" "$root/ci/http_timeout_check.py"
     "${clean[@]}" "$venv/bin/python" "$root/ci/diagnostics_check.py"
     "${clean[@]}" "$venv/bin/python" "$root/ci/connect_fallback_check.py"
+    "${clean[@]}" "$venv/bin/python" "$root/ci/canvas_unpremultiply_check.py"
+    "${clean[@]}" "$venv/bin/python" "$root/ci/media_element_members_check.py"
+    "${clean[@]}" "$venv/bin/python" "$root/ci/script_full_parse_check.py"
+    "${clean[@]}" "$venv/bin/python" "$root/ci/webgl_context_attributes_check.py"
+    "${clean[@]}" "$venv/bin/python" "$root/ci/mouse_event_coordinates_check.py"
     # One real page load through the bundled Necko helper, direct and through
     # a local CONNECT proxy.
     "${clean[@]}" "$venv/bin/python" "$root/ci/network_smoke.py"

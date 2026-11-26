@@ -152,12 +152,34 @@ bool BindGeometryPorts(BrowsingContext& context) {
     return true;
   }, &context);
   context.geometry->SetBoxPorts(boxes);
+  // MouseEvent pageX/offsetX/layerX read this document's layout.
+  context.interaction->SetGeometryPort([](void* raw, interaction::GeometryQuery query, JS::HandleObject target,
+                                         double x, double y, double* outX, double* outY) {
+    auto& owner = *static_cast<BrowsingContext*>(raw);
+    // pageX: the client point plus this document's scroll position; it needs no target.
+    if (query == interaction::GeometryQuery::Page) {
+      double width = 0, height = 0, sx = 0, sy = 0;
+      if (!owner.environment->ReadLayoutViewport(&width, &height, &sx, &sy)) return false;
+      *outX = x + sx; *outY = y + sy;
+      return true;
+    }
+    // offsetX/layerX of an event whose target is not a node of this document (the
+    // Window, an XMLHttpRequest, a plain EventTarget): 0, as Firefox.
+    if (!owner.geometry || !target || owner.document->InputDocument(target) != owner.document.get()) {
+      *outX = *outY = 0;
+      return true;
+    }
+    std::array<double, 2> point{*outX, *outY};
+    if (!owner.geometry->EventCoordinates(target, int(query), x, y, &point)) return false;
+    *outX = point[0]; *outY = point[1];
+    return true;
+  }, &context);
   context.styling->SetUsedBoxPort([](void* raw, JS::HandleObject element,
                                      web_styling::UsedBox* out, bool* present) {
     auto& owner = *static_cast<BrowsingContext*>(raw);
     web_geometry::Realm::UsedBox used;
     if (!owner.geometry->MeasureUsed(element, &used, present)) return false;
-    out->width = used.width; out->height = used.height;
+    out->width = used.width + used.scrollbar[0]; out->height = used.height + used.scrollbar[1];
     out->padding = used.padding; out->margin = used.margin;
     out->border = used.border; out->inset = used.inset;
     return true;

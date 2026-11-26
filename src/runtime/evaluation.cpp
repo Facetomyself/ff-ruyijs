@@ -17,6 +17,7 @@
 #include "js/RealmOptions.h"
 #include "js/SourceText.h"
 #include "js/StableStringChars.h"
+#include "js/String.h"
 
 namespace ruyijs {
 namespace {
@@ -24,12 +25,60 @@ PageFrames* FramesOf(JSObject* page) {
   const JS::Value value = JS::GetReservedSlot(page, JSCLASS_GLOBAL_SLOT_COUNT + unsigned(PageReference::Frames));
   return value.isUndefined() ? nullptr : static_cast<PageFrames*>(value.toPrivate());
 }
+// Firefox release builds resolve three legacy names on a content window
+// (nsGlobalWindowInner::DoResolve with USE_CONTROLLERS_SHIM, and
+// dom.use_components_shim): `controllers` and `Controllers` as empty objects
+// of the XULControllers and Controllers classes (bug 1010577: sites sniff
+// Firefox by them), and `Components` as {interfaces: {nsIDOMNode: Node, ...}}.
+// Each becomes an own writable, enumerable, configurable data property when
+// first looked up; no own-key listing names it before that.
+const JSClass kXULControllersShim = {"XULControllers", 0};
+const JSClass kControllersShim = {"Controllers", 0};
+constexpr struct { const char* gecko; const char* dom; } kInterfaceShims[] = {
+    {"nsIXMLHttpRequest", "XMLHttpRequest"}, {"nsIDOMDOMException", "DOMException"},
+    {"nsIDOMNode", "Node"}, {"nsIDOMCSSRule", "CSSRule"}, {"nsIDOMEvent", "Event"},
+    {"nsIDOMNSEvent", "Event"}, {"nsIDOMKeyEvent", "KeyEvent"}, {"nsIDOMMouseEvent", "MouseEvent"},
+    {"nsIDOMMouseScrollEvent", "MouseScrollEvent"}, {"nsIDOMMutationEvent", "MutationEvent"},
+    {"nsIDOMUIEvent", "UIEvent"}, {"nsIDOMHTMLMediaElement", "HTMLMediaElement"},
+    {"nsIDOMRange", "Range"}, {"nsIDOMNodeFilter", "NodeFilter"}, {"nsIDOMXPathResult", "XPathResult"}};
+enum class WindowShim { None, Controllers, ControllersClass, Components };
+WindowShim ShimFor(jsid id) {
+  if (!id.isString()) return WindowShim::None;
+  JSLinearString* name = id.toLinearString();
+  if (JS_LinearStringEqualsAscii(name, "controllers")) return WindowShim::Controllers;
+  if (JS_LinearStringEqualsAscii(name, "Controllers")) return WindowShim::ControllersClass;
+  if (JS_LinearStringEqualsAscii(name, "Components")) return WindowShim::Components;
+  return WindowShim::None;
+}
+bool ResolveShim(JSContext* cx, JS::HandleObject page, JS::HandleId id, WindowShim shim, bool* resolved) {
+  JS::RootedObject value(cx);
+  if (shim == WindowShim::Components) {
+    JS::RootedObject interfaces(cx, JS_NewPlainObject(cx));
+    value = JS_NewPlainObject(cx);
+    const unsigned fixed = JSPROP_ENUMERATE | JSPROP_PERMANENT | JSPROP_READONLY;
+    if (!value || !interfaces || !JS_DefineProperty(cx, value, "interfaces", interfaces, fixed)) return false;
+    JS::RootedValue face(cx);
+    for (const auto& entry : kInterfaceShims) {
+      if (!JS_GetProperty(cx, page, entry.dom, &face)) return false;
+      if (face.isObject() && !JS_DefineProperty(cx, interfaces, entry.gecko, face, fixed)) return false;
+    }
+  } else {
+    value = JS_NewObject(cx, shim == WindowShim::Controllers ? &kXULControllersShim : &kControllersShim);
+    if (!value) return false;
+  }
+  if (!JS_DefinePropertyById(cx, page, id, value, JSPROP_ENUMERATE)) return false;
+  *resolved = true;
+  return true;
+}
 // Window indexed properties: the standard-class lazy resolution first, then an
 // array index below the child count resolves to that child's WindowProxy
 // (enumerable, configurable, read-only, like the donor's WindowProxy).
 bool PageResolve(JSContext* cx, JS::HandleObject page, JS::HandleId id, bool* resolved) {
   if (!JS_ResolveStandardClass(cx, page, id, resolved)) return false;
-  if (*resolved || !id.isInt() || id.toInt() < 0) return true;
+  if (*resolved) return true;
+  if (const WindowShim shim = ShimFor(id); shim != WindowShim::None)
+    return ResolveShim(cx, page, id, shim, resolved);
+  if (!id.isInt() || id.toInt() < 0) return true;
   PageFrames* frames = FramesOf(page);
   const size_t index = size_t(id.toInt());
   if (!frames || !frames->count || index >= frames->count(frames->context)) return true;
@@ -43,7 +92,7 @@ bool PageResolve(JSContext* cx, JS::HandleObject page, JS::HandleId id, bool* re
   return true;
 }
 bool PageMayResolve(const JSAtomState& names, jsid id, JSObject* maybe) {
-  return id.isInt() || JS_MayResolveStandardClass(names, id, maybe);
+  return id.isInt() || ShimFor(id) != WindowShim::None || JS_MayResolveStandardClass(names, id, maybe);
 }
 // Own keys list the child indices first (Firefox: indexed properties precede
 // the named ones), then the standard classes.
@@ -130,7 +179,7 @@ bool ToUTF8(JSContext* cx, JS::HandleString input, std::string* output) {
 bool Evaluate(JSContext* cx, JS::HandleObject page, JS::HandleString code,
               const char* filename, Checkpoint checkpoint,
               JS::MutableHandleValue value, bool* success, const EvalOptions& evalOptions,
-              const char* introduction, bool host) {
+              const char* introduction, bool host, bool fullParse) {
   execution_scheduling::BeginPageOperation(cx, page);
   JS::AutoStableStringChars characters(cx);
   if (!characters.initTwoByte(cx, code)) return false;
@@ -143,6 +192,11 @@ bool Evaluate(JSContext* cx, JS::HandleObject page, JS::HandleString code,
     JS::RootedScript introducer(cx);
     if (introduction) options.setIntroductionInfoToCaller(cx, introduction, &introducer);
     options.setFileAndLine(filename, 1);
+    // A page script the document's ScriptLoader compiles in full
+    // (ScriptLoader::ApplyDelazifyStrategy): every inner function is parsed
+    // with the top level, which is also what names them (Error.stack reads
+    // "639/OD/<", a lazily parsed one only "OD/<").
+    if (fullParse) options.setEagerDelazificationStrategy(JS::DelazificationOption::ParseEverythingEagerly);
     // Public ruyijs applies offsets only when BOTH values are nonnegative.
     if (evalOptions.line() >= 0 && evalOptions.col() >= 0) {
       options.setFileAndLine(filename, uint32_t(evalOptions.line()) + 1);

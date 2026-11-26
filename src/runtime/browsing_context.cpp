@@ -1,6 +1,7 @@
 #include "runtime/secure_exposure.h"
 #include "runtime/user_activation_ports.h"
 #include "runtime/browsing_context.h"
+#include "browser_environment/cross_origin.h"
 #include "execution_scheduling/realm.h"
 #include "web_styling/computed_source.h"
 #include "document_model/exception.h"
@@ -52,6 +53,76 @@ bool CanvasElementCheck(void* context, JS::HandleObject element, bool* result) {
   std::vector<document_model::StyleFrame> chain;
   return static_cast<document_model::Realm*>(context)->ReadStyleChain(element, &chain, result);
 }
+// Whether a container iframe's allow attribute (its Permissions Policy
+// container policy) grants `feature` to the framed document at `origin`: a
+// directive naming the feature with no allowlist (the 'src' default), `*`,
+// 'src', or that serialized origin.
+bool AllowGrants(const std::string& allow, const char* feature, const std::string& origin) {
+  size_t start = 0;
+  while (start <= allow.size()) {
+    size_t end = allow.find(';', start);
+    if (end == std::string::npos) end = allow.size();
+    std::vector<std::string> tokens;
+    std::string token;
+    for (size_t i = start; i <= end; ++i) {
+      const char c = i < end ? allow[i] : ' ';
+      if (c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '\f') {
+        if (!token.empty()) tokens.push_back(token);
+        token.clear();
+      } else {
+        token += c >= 'A' && c <= 'Z' && tokens.empty() ? char(c - 'A' + 'a') : c;
+      }
+    }
+    if (!tokens.empty() && tokens[0] == feature) {
+      if (tokens.size() == 1) return true;
+      for (size_t i = 1; i < tokens.size(); ++i)
+        if (tokens[i] == "*" || tokens[i] == "'src'" || tokens[i] == origin) return true;
+      return false;
+    }
+    start = end + 1;
+  }
+  return false;
+}
+// PermissionDelegateHandler's inputs for an iframe document: whether it is
+// cross-origin to the top-level document (IsCrossOriginContentToTop), and
+// whether a Permissions Policy feature with the 'self' default allowlist is
+// allowed in it (PermissionsPolicyUtils::IsFeatureAllowed). Up the ancestor
+// chain a same-origin link inherits its parent's decision, and a cross-origin
+// link needs its container iframe's allow attribute to grant the feature.
+bool FramePolicy(void* context, const char* feature, bool* crossOriginToTop, bool* allowed) {
+  BrowsingContext& self = *static_cast<BrowsingContext*>(context);
+  JSContext* cx = self.cx;
+  BrowsingContext* top = &self;
+  while (top->parent) top = top->parent;
+  bool same = true;
+  if (!browser_environment::SameOriginWindows(cx, self.page, top->page, &same)) return false;
+  *crossOriginToTop = !same;
+  *allowed = true;
+  for (BrowsingContext* child = &self; feature && child->parent; child = child->parent) {
+    BrowsingContext& parent = *child->parent;
+    if (!browser_environment::SameOriginWindows(cx, child->page, parent.page, &same)) return false;
+    if (same) continue;
+    JS::RootedObject frame(cx);
+    JS::RootedValue allow(cx), origin(cx);
+    if (!parent.document->WrapNode(child->frame_element, &frame) ||
+        !parent.document->Attribute(frame, u"allow", &allow) ||
+        !child->environment->Origin(&origin)) return false;
+    std::string allowText, originText;
+    if (allow.isString()) {
+      JS::RootedString text(cx, allow.toString());
+      if (!ToUTF8(cx, text, &allowText)) return false;
+    }
+    if (origin.isString()) {
+      JS::RootedString text(cx, origin.toString());
+      if (!ToUTF8(cx, text, &originText)) return false;
+    }
+    if (!AllowGrants(allowText, feature, originText)) {
+      *allowed = false;
+      return true;
+    }
+  }
+  return true;
+}
 // The `src` of a frame element, read through the Document Model owner that
 // holds the tree: the runtime keeps no attribute copy of its own. A missing
 // attribute yields an empty reference, which leaves the child at about:blank.
@@ -82,6 +153,7 @@ BrowsingContext::~BrowsingContext() {
   if (security) security->Unbind();
   if(resources)resources->Resources().SetHttpObservation(nullptr,nullptr,nullptr,nullptr);
   if (interaction) interaction->SetInputActivationPort(nullptr, nullptr);
+  if (interaction) interaction->SetGeometryPort(nullptr, nullptr);
   if (interaction) interaction->SetCloseWatcherPorts({}, nullptr);
   if (environment) environment->SetActivationClock(nullptr, nullptr);
   scheduling=nullptr;
@@ -131,6 +203,7 @@ BrowsingContext::~BrowsingContext() {
   }
   if (media) media->SetCanvasSizePort(nullptr, nullptr);
   if (permissions) permissions->SetTaskPort(nullptr, nullptr);
+  if (permissions) permissions->SetFramePolicyPort(nullptr, nullptr);
   if (geolocation) {
     geolocation->SetTaskPort(nullptr, nullptr);
     geolocation->SetPermissionPort(nullptr, nullptr);
@@ -181,6 +254,7 @@ BrowsingContext::~BrowsingContext() {
     document->SetElementScrollPort({});
     document->SetMediaKeysCheckPort(nullptr, nullptr);
     document->SetTextTrackPorts({});
+    document->SetMediaValuePorts({});
     document->SetStyleDeclarationPort({});
     document->SetGeometryFactory(nullptr);
     document->SetStyleNotifyPort(nullptr, nullptr);
@@ -307,6 +381,13 @@ bool BrowsingContext::Finish(Frames& owner) {
   environment->SetOwnerPort("audio", &web_audio::ConfigureProfileGroup, cx);
   platform = std::make_unique<web_platform::Realm>(cx, page, *helpers, *interaction,
                                                  origin ? origin->platform.get() : nullptr);
+  platform->SetLineBreakPort([](void* context) {
+    // navigator.platform "Win32" (and an unset one: the default profile is
+    // Windows) writes CR LF; "MacIntel", "Linux x86_64"... write LF.
+    std::string platform;
+    return !static_cast<browser_environment::Environment*>(context)->ReadPlatform(&platform) ||
+           platform.empty() || platform.rfind("Win", 0) == 0;
+  }, environment.get());
   platform->SetFormFieldsPort([](void* context, JS::HandleObject form,
                                  JS::HandleValue submitter,
                                  std::vector<web_platform::FormField>* result) {
@@ -480,6 +561,20 @@ bool BrowsingContext::Finish(Frames& owner) {
   }, nullptr);
   document->SetTextTrackPorts({web_media::NewElementTextTrackList,
                                web_media::AppendElementTextTrack});
+  {
+    document_model::MediaValuePorts values;
+    values.timeRanges = web_media::NewEmptyTimeRanges;
+    values.playbackQuality = web_media::NewVideoPlaybackQuality;
+    values.newStream = web_media::NewEmptyMediaStream;
+    values.isStream = web_media::IsMediaStream;
+    values.now = [](void* context) {
+      auto& owner = *static_cast<BrowsingContext*>(context);
+      JS::RootedObject page(owner.cx, owner.page);
+      return owner.scheduling->ReduceRelative(page, owner.scheduling->OriginRelative(page, -1));
+    };
+    values.nowContext = this;
+    document->SetMediaValuePorts(values);
+  }
   indexeddb = std::make_unique<web_indexeddb::Realm>(cx, page, *helpers, *interaction,
       *environment, origin ? origin->indexeddb.get() : nullptr);
   if (!indexeddb->Install()) return false;
@@ -494,6 +589,7 @@ bool BrowsingContext::Finish(Frames& owner) {
       origin ? origin->permissions.get() : nullptr);
   JS::RootedObject navigatorPrototype(cx, environment->navigatorPrototype());
   if (!permissions->Install(navigatorPrototype)) return false;
+  if (parent) permissions->SetFramePolicyPort(&FramePolicy, this);
   environment->SetPermissionsPort([](void* context, JS::HandleObject group) {
     return static_cast<web_permissions::Realm*>(context)->Configure(group);
   }, permissions.get());
