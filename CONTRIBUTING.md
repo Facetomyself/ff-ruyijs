@@ -5,8 +5,8 @@ requests are all welcome.
 
 ## Before you open a PR
 
-ruyijs keeps a strict architecture. Please read [ARCHITECTURE.md](./ARCHITECTURE.md) and the
-relevant [owner record](./docs/owners) first. The essentials:
+Start in the relevant bounded context under [src/](./src/) and check [owner records](./docs/owners/)
+for the state source, factory and installer before making a change. The essentials:
 
 - **One owner per API.** Every constructor, prototype, descriptor and global has exactly one
   production installer. Extend the existing owner. Do not add a second implementation or an
@@ -20,23 +20,23 @@ relevant [owner record](./docs/owners) first. The essentials:
   from the main realm.
 - **One browser API domain per change.** Any new single file over 200 lines needs a short
   responsibility and split rationale in the PR description.
-- **Measure against Firefox.** Behaviour changes should cite real Firefox 159 output (for
-  example via `tools/firefox_parity`) and update [docs/DEVIATIONS.md](./docs/DEVIATIONS.md) when
-  a difference remains.
+- **Compare with Firefox.** For behaviour changes, run the same minimal synthetic fixture
+  on the candidate and on the Firefox version matching its source/donor. Record the exact
+  Firefox version, both outputs, and any remaining differences in the PR description.
 
-- **Cut from `main`.** Read [docs/branching.md](./docs/branching.md)
-  ([中文](./docs/branching.zh-CN.md)) before choosing a base. `main` is the trunk for Linux,
-  macOS, and Windows. An upstream update is merged on a `sync/<sha>` branch cut from `main`,
-  checked per platform, and merged back. `release/macos` is a fast-forward pointer of `main`,
-  not a second place to commit.
+- **Choose the right base.** Read the [public fork maintenance rules](./docs/branching.md#public-fork-maintenance-scope)
+  ([中文](./docs/branching.zh-CN.md#公开-fork-维护范围)). Fork-owned product work is macOS/Linux compatibility and performance;
+  `main` remains the shared three-platform trunk. Start fork work from `origin/main` and send a
+  reusable patch upstream from a clean `upstream/<topic>` branch based on `upstream/main`.
 
 ## Pull request checklist
 
 - [ ] The owner record (bounded context, state source, factory, installer, tests) is updated for API changes
-- [ ] When C++ changes, the shell is rebuilt (`js.exe` on Windows, `js` on macOS) together with the client library (`python -B tools/build.py ...`)
+- [ ] For C++ changes, rebuild the shell and client library for affected platforms using the [platform instructions](./docs/branching.md#verification)
 - [ ] Behaviour is checked through both Python and the C ABI
 - [ ] Tests cover the owner, descriptors/prototypes, invalid receivers and realm behaviour, not just "it exists"
-- [ ] The diff contains no build outputs, captures, logs, credentials or proxy details
+- [ ] The diff and PR attachments contain no private/product source from outside this public project, original materials, build outputs, captures, logs, credentials or proxy details
+- [ ] For platform or performance changes, use the [PR evidence template](./docs/branching.md#pr-evidence-template) ([中文](./docs/branching.zh-CN.md#pr-证据模板)) and record which checks ran, their results, and why any were skipped
 
 - [ ] If this pull request changes the role of a long-lived branch, [docs/branching.md](./docs/branching.md) and [docs/branching.zh-CN.md](./docs/branching.zh-CN.md) match. A fast-forward of `release/macos` or `tls/necko-core-arm64` does not need a docs commit, and the change is not copied onto every other branch
 
