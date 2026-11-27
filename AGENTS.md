@@ -6,7 +6,7 @@
 
 ff-ruyijs is a **headless Firefox engine for Python** — it embeds the real SpiderMonkey (Firefox 160) JavaScript engine and the Necko HTTP stack so Python code can execute any site's JavaScript, pass bot checks, and collect data without a browser window.
 
-- **Repository:** https://github.com/cutetailbud/ff-ruyijs
+- **Public fork:** https://github.com/Facetomyself/ff-ruyijs; **upstream:** https://github.com/cutetailbud/ff-ruyijs
 - **License:** AGPL-3.0-only, or a commercial license from the author for closed-source use (see COMMERCIAL-LICENSE.md)
 
 ## Key facts
@@ -48,7 +48,7 @@ assets/                 README images and architecture diagrams
 
 ## Branches
 
-`docs/branching.md` and `docs/branching.zh-CN.md` are the branch rules. `main` is the trunk for Linux, macOS, and Windows. Cut feature work from `main`. Bring upstream in on `sync/<sha>` by merge, then check each affected platform before merging to `main`. Do not commit on `release/macos`. Do not push a documentation commit onto every other branch. Do not push `upstream`.
+Follow the [public fork maintenance rules](docs/branching.md#public-fork-maintenance-scope) ([中文](docs/branching.zh-CN.md#公开-fork-维护范围)). `main` remains the three-platform trunk; fork-owned product work is macOS/Linux compatibility and performance. Use `sync/<sha>` for upstream merges and `perf/<topic>` for performance patches. `origin` is the fork; `upstream` is fetch-only. Platform pointers are fast-forward only. Prepare an upstream patch from `upstream/main`; opening its upstream PR requires an explicit instruction for that PR. Record actual [platform and performance evidence](docs/branching.md#verification), including checks not run.
 
 ## Conventions
 
